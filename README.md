@@ -248,7 +248,7 @@ while true; do
     fi
     
     if [ $hours -ge 5 ]; then
-        echo "🛑 LIMIT OSIĄGNIĘTY! Reset za $(date -d '+5 hours' '+%H:%M')"
+        echo "🛑 LIApache OSIĄGNIĘTY! Reset za $(date -d '+5 hours' '+%H:%M')"
         break
     fi
     
