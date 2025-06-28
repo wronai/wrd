@@ -12,27 +12,23 @@ Features:
 - Project templates
 """
 
-import json
 import logging
 import os
-import signal
 import subprocess
 import sys
-import yaml
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any, TypeVar, Union, Tuple
+from typing import Dict, List, Optional, Any, TypeVar, Union
 
 import typer
+import yaml
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from rich.table import Table
-from rich.prompt import Confirm, Prompt
 
 from . import __version__
-from .cli import WRDShell
-from .template_manager import get_template_manager
+
+# Template manager is imported on demand to avoid circular imports
 
 # Configure logging
 logging.basicConfig(
@@ -40,24 +36,21 @@ logging.basicConfig(
     format="%(message)s",
     datefmt="[%X]",
     handlers=[
-        RichHandler(rich_tracebacks=True, markup=True, show_time=False, show_path=False),
-        logging.FileHandler(Path.home() / ".wrd" / "wrd.log")
-    ]
+        RichHandler(
+            rich_tracebacks=True, markup=True, show_time=False, show_path=False
+        ),
+        logging.FileHandler(Path.home() / ".wrd" / "wrd.log"),
+    ],
 )
 logger = logging.getLogger("wrd")
 console = Console()
 
 # Type variable for generic function return type
-T = TypeVar("T")
+T = TypeVar('T')
 
-# Initialize Typer app
-app = typer.Typer(
-    name="wrd",
-    help="WRD (WRonai Development) - A powerful workflow tool for developers",
-    add_completion=False,
-    no_args_is_help=True,
-    rich_markup_mode="rich"
-)
+
+# Global configuration cache
+_config = None
 
 
 class WRDConfig:
@@ -67,39 +60,38 @@ class WRDConfig:
         self.home_dir = Path.home()
         self.wrd_dir = self.home_dir / ".wrd"
         self.config_file = self.wrd_dir / "config.yaml"
-        self.projects_dir = Path(os.getenv("WRD_PROJECTS_DIR", self.home_dir / "projects"))
+        self.projects_dir = Path(
+            os.getenv("WRD_PROJECTS_DIR", self.home_dir / "projects")
+        )
         self.templates_dir = self.wrd_dir / "templates"
         self.user_templates_dir = self.wrd_dir / "user_templates"
         self.cache_dir = self.wrd_dir / "cache"
-        
+
         # Ensure all required directories exist
         self.ensure_directories()
         self.config = self.load_config()
 
     def ensure_directories(self) -> None:
         """Ensure all required directories exist."""
-        directories = [
+        for directory in [
             self.wrd_dir,
             self.projects_dir,
             self.templates_dir,
             self.user_templates_dir,
-            self.cache_dir
-        ]
-        for directory in directories:
+            self.cache_dir,
+        ]:
             directory.mkdir(parents=True, exist_ok=True)
 
     def load_config(self) -> Dict[str, Any]:
         """Load configuration from YAML file."""
-        if not self.config_file.exists():
-            return self.get_default_config()
-
-        try:
-            with open(self.config_file, 'r') as f:
-                config = yaml.safe_load(f) or {}
-                return {**self.get_default_config(), **config}
-        except Exception as e:
-            logger.error(f"Error loading configuration: {e}")
-            return self.get_default_config()
+        if self.config_file.exists():
+            try:
+                with open(self.config_file, 'r') as f:
+                    return yaml.safe_load(f) or {}
+            except Exception as e:
+                logger.error(f"Error loading config file: {e}")
+                return {}
+        return {}
 
     def save_config(self) -> None:
         """Save configuration to YAML file."""
@@ -107,33 +99,21 @@ class WRDConfig:
             with open(self.config_file, 'w') as f:
                 yaml.dump(self.config, f, default_flow_style=False)
         except Exception as e:
-            logger.error(f"Error saving configuration: {e}")
+            logger.error(f"Error saving config file: {e}")
 
     def get_default_config(self) -> Dict[str, Any]:
         """Return default configuration."""
         return {
-            'version': '1.0.0',
             'projects_dir': str(self.projects_dir),
-            'editor': os.getenv('EDITOR', 'code'),
-            'default_language': 'python',
-            'default_template': 'python',
-            'templates': {},
-            'ai_tools': {
-                'claude_code': {
-                    'enabled': True,
-                    'api_key': os.getenv('CLAUDE_API_KEY', '')
-                }
-            },
-            'workflows': {
-                'documentation_auto': True,
-                'commit_auto_describe': True
-            },
+            'templates_dir': str(self.templates_dir),
+            'user_templates_dir': str(self.user_templates_dir),
+            'cache_dir': str(self.cache_dir),
             'recent_projects': [],
             'settings': {
-                'auto_update': True,
-                'check_updates': True,
-                'notifications': True
-            }
+                'auto_commit': True,
+                'default_editor': os.getenv('EDITOR', 'nano'),
+                'confirm_deletion': True,
+            },
         }
 
 
@@ -147,169 +127,117 @@ class WRDProject:
         self.project_dir = self.config.projects_dir / name
         self.claude_md_file = self.project_dir / 'CLAUDE.md'
 
-    def create(self, description: str = ""):
+        if not self.project_dir.exists():
+            self.project_dir.mkdir(parents=True, exist_ok=True)
+
+    def create(self, description: str = "") -> None:
         """Tworzenie nowego projektu"""
-        if self.project_dir.exists():
-            logger.warning(f"Projekt {self.name} już istnieje")
-            return False
+        try:
+            # Create project structure
+            self.project_dir.mkdir(parents=True, exist_ok=True)
 
-        # Tworzenie struktury katalogów
-        dirs = ['src', 'tests', 'docs', 'scripts', 'config']
-        for dir_name in dirs:
-            (self.project_dir / dir_name).mkdir(parents=True)
+            # Create README.md
+            self._create_readme(description)
 
-        # Tworzenie plików bazowych
-        self._create_readme(description)
-        self._create_claude_md(description)
-        self._create_requirements_txt()
-        self._create_gitignore()
+            # Create CLAUDE.md for Claude Code
+            self._create_claude_md(description)
 
-        # Inicjalizacja git
-        subprocess.run(['git', 'init'], cwd=self.project_dir, capture_output=True)
+            # Create requirements.txt
+            self._create_requirements_txt()
 
-        logger.info(f"Projekt {self.name} został utworzony w {self.project_dir}")
-        return True
+            # Create .gitignore
+            self._create_gitignore()
 
-    def _create_readme(self, description: str):
+            logger.info(f"Created new project: {self.name}")
+
+        except Exception as e:
+            logger.error(f"Error creating project: {e}")
+            raise
+
+    def _create_readme(self, description: str) -> None:
         """Tworzenie README.md"""
         readme_content = f"""# {self.name}
 
 {description}
 
-## Opis projektu
-Projekt typu: {self.project_type}
-Utworzony: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
+## Project Structure
 
-## Instalacja
-```bash
-cd {self.name}
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-pip install -r requirements.txt
+```
+{self.project_dir.name}/
+├── CLAUDE.md           # Claude Code instructions
+├── README.md           # This file
+├── requirements.txt    # Project dependencies
+└── .gitignore         # Git ignore file
 ```
 
-## Użycie
-```bash
-python src/main.py
-```
+## Getting Started
 
-## Rozwój
-Ten projekt został utworzony z użyciem WRD (Word) - narzędzia do zarządzania projektami Claude Code.
+1. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
 
-## Dokumentacja
-Szczegółowa dokumentacja znajduje się w pliku CLAUDE.md
+2. Start developing!
 """
 
         with open(self.project_dir / 'README.md', 'w') as f:
             f.write(readme_content)
 
-    def _create_claude_md(self, description: str):
+    def _create_claude_md(self, description: str) -> None:
         """Tworzenie CLAUDE.md dla Claude Code"""
-        claude_content = f"""# Claude Code Project: {self.name}
+        claude_content = f"""# {self.name}
 
-## Przegląd projektu
-- **Nazwa**: {self.name}
-- **Typ**: {self.project_type}
-- **Opis**: {description}
-- **Utworzony**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
-- **Narzędzie**: WRD (Word) v1.0
+{description}
 
-## Środowisko deweloperskie
-- **OS**: Fedora Linux
-- **Python**: {sys.version.split()[0]}
-- **Virtual Environment**: venv/
-- **Narzędzia**: Claude Code, WRD
+## Project Structure
 
-## Struktura projektu
-```
-{self.name}/
-├── src/           # Kod źródłowy
-├── tests/         # Testy
-├── docs/          # Dokumentacja
-├── scripts/       # Skrypty pomocnicze
-├── config/        # Konfiguracja
-├── venv/          # Środowisko wirtualne
-├── README.md      # Podstawowa dokumentacja
-├── CLAUDE.md      # Ten plik - dokumentacja dla Claude Code
-├── requirements.txt # Zależności Python
-└── .gitignore     # Git ignore
-```
+- `src/` - Source code
+- `tests/` - Test files
+- `docs/` - Documentation
+- `data/` - Data files
+- `notebooks/` - Jupyter notebooks
 
-## Workflow z Claude Code
-1. **Planowanie** (Gemini 2.5 Pro/Claude.ai)
-   - Architektura rozwiązania
-   - Specyfikacja funkcjonalności
-   - Planowanie iteracji
+## Development Workflow
 
-2. **Implementacja** (Claude Code)
-   - Kodowanie w 5-godzinnych sesjach
-   - Automatyczne commity z opisami
-   - Iteracyjny rozwój
-
-3. **Dokumentacja** (Automatyczna)
-   - WRD automatycznie dokumentuje proces
-   - Śledzenie błędów i rozwiązań
-   - Historia zmian
-
-## Postęp prac
-### {datetime.datetime.now().strftime('%Y-%m-%d')}
-- ✅ Inicjalizacja projektu
-- ✅ Struktura katalogów
-- ⏳ Implementacja podstawowej funkcjonalności
-
-## Błędy i rozwiązania
-<!-- Automatycznie aktualizowane przez WRD -->
-
-## Notatki techniczne
-<!-- Miejsce na notatki specyficzne dla Claude Code -->
-
-## Optymalizacje wydajności
-<!-- Dokumentacja optymalizacji -->
-
-## Deployment
-<!-- Instrukcje wdrożenia -->
-
----
-*Dokumentacja generowana przez WRD (Word) - narzędzie workflow dla Claude Code*
+1. Describe your task or question in this file
+2. Use Claude Code to generate or modify code
+3. Test your changes
+4. Commit and push your work
 """
-
         with open(self.claude_md_file, 'w') as f:
             f.write(claude_content)
 
-    def _create_requirements_txt(self):
+    def _create_requirements_txt(self) -> None:
         """Tworzenie requirements.txt"""
         requirements = [
-            "requests>=2.28.0",
-            "click>=8.0.0",
-            "rich>=12.0.0",
-            "pydantic>=1.9.0",
-            "python-dotenv>=0.19.0"
+            "# Core dependencies",
+            "numpy>=1.21.0",
+            "pandas>=1.3.0",
+            "matplotlib>=3.4.0",
+            "",
+            "# Development dependencies",
+            "pytest>=6.2.0",
+            "black>=21.0",
+            "isort>=5.0.0",
+            "mypy>=0.900",
+            "pylint>=2.0.0",
+            "",
         ]
-
-        if self.project_type == 'fastapi':
-            requirements.extend([
-                "fastapi>=0.95.0",
-                "uvicorn>=0.20.0"
-            ])
-        elif self.project_type == 'data':
-            requirements.extend([
-                "pandas>=1.5.0",
-                "numpy>=1.24.0",
-                "matplotlib>=3.6.0"
-            ])
 
         with open(self.project_dir / 'requirements.txt', 'w') as f:
             f.write('\n'.join(requirements))
 
-    def _create_gitignore(self):
+    def _create_gitignore(self) -> None:
         """Tworzenie .gitignore"""
-        gitignore_content = """# WRD Generated .gitignore
-
-# Python
+        gitignore_content = """# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -327,575 +255,404 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
-venv/
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
 env/
+venv/
 ENV/
+env.bak/
+venv.bak/
 
-# IDE
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# PyCharm
+.idea/
+*.iml
+
+# VS Code
 .vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 
-class WRDManager:
-    """Main class for managing WRD projects."""
+# macOS
+.DS_Store
 
-    def __init__(self, config: 'WRDConfig'):
-        """Initialize WRDManager with config."""
-        self.config = config
-        self.projects: Dict[str, WRDProject] = {}
-        self.load_projects()
-    
-    def load_projects(self) -> None:
-        """Load all projects from the projects directory."""
-        self.projects = {}
-        if not self.config.projects_dir.exists():
-            return
-            
-        for project_dir in self.config.projects_dir.glob('*'):
-            if project_dir.is_dir() and not project_dir.name.startswith('.'):
-                try:
-                    project = WRDProject(project_dir, self.config)
-                    self.projects[project.name] = project
-                except Exception as e:
-                    logger.warning(f"Error loading project {project_dir.name}: {e}")
-    
-    def create_project(
-        self, 
-        name: str, 
-        project_type: str = 'python', 
-        description: str = '',
-        template: Optional[str] = None,
-        **kwargs
-    ) -> 'WRDProject':
-        """Create a new project.
-        
-        Args:
-            name: Name of the project
-            project_type: Type of project (e.g., 'python', 'web', 'data')
-            description: Project description
-            template: Optional template to use for project creation
-            **kwargs: Additional project metadata
-            
-        Returns:
-            WRDProject: The created project
-            
-        Raises:
-            ValueError: If project already exists or creation fails
-        """
-        project_path = self.config.projects_dir / name
-        
-        if project_path.exists():
-            raise ValueError(f"Project '{name}' already exists")
-        
-        try:
-            # Create project directory structure
-            project_path.mkdir(parents=True, exist_ok=True)
-            
-            # Initialize project with metadata
-            project = WRDProject(project_path, self.config)
-            project._metadata.update({
-                'name': name,
-                'type': project_type,
-                'description': description,
-                'created_at': datetime.now().isoformat(),
-                'status': 'active',
-                'ai_tools': [],
-                'workflows': {},
-                **kwargs
-            })
-            
-            # Apply template if specified
-            if template:
-                self._apply_template(project, template)
-            
-            # Initialize Git repository
-            self._init_git_repo(project_path)
-            
-            # Save metadata and add to projects
-            project.save_metadata()
-            self.projects[name] = project
-            
-            # Update recent projects
-            self._update_recent_projects(name)
-            
-            return project
-            
-        except Exception as e:
-            # Clean up on failure
-            if project_path.exists():
-                import shutil
-                shutil.rmtree(project_path, ignore_errors=True)
-            raise ValueError(f"Failed to create project: {e}")
-    
-    def _apply_template(self, project: 'WRDProject', template_name: str) -> None:
-        """Apply a template to the project.
-        
-        Args:
-            project: The project to apply the template to
-            template_name: Name of the template to apply
-            
-        Raises:
-            ValueError: If template is not found or application fails
-        """
-        try:
-            template_manager = get_template_manager()
-            context = {
-                'project_name': project.name,
-                'project_path': str(project.path),
-                'project_type': project._metadata.get('type', 'python'),
-                'description': project._metadata.get('description', ''),
-                'author': os.getenv('USER', 'Your Name'),
-                'email': '',
-                'year': datetime.now().year,
-                'version': '0.1.0',
-            }
-            
-            success = template_manager.create_project(
-                template_name=template_name,
-                project_path=project.path,
-                context=context,
-                overwrite=False
-            )
-            
-            if not success:
-                raise ValueError(f"Failed to apply template: {template_name}")
-                
-        except Exception as e:
-            logger.error(f"Error applying template: {e}")
-            if os.getenv("WRD_DEBUG"):
-                import traceback
-                logger.debug(traceback.format_exc())
-            raise
-    
-    def _init_git_repo(self, path: Path) -> None:
-        """Initialize a Git repository for the project."""
-        try:
-            # Initialize repository
-            run_command(['git', 'init'], cwd=path)
-            
-            # Configure basic Git settings
-            run_command(['git', 'config', 'pull.rebase', 'false'], cwd=path)
-            
-            # Create basic .gitignore if it doesn't exist
-            gitignore = path / '.gitignore'
-            if not gitignore.exists():
-                gitignore_content = (
-                    "# Python\n"
-                    "__pycache__/\n"
-                    "*.py[cod]\n"
-                    "*$py.class\n"
-                    "*.so\n"
-                    ".Python\n"
-                    "build/\n"
-                    "develop-eggs/\n"
-                    "dist/\n"
-                    "downloads/\n"
-                    "eggs/\n"
-                    ".eggs/\n"
-                    "lib\n"
-                    "lib64\n"
-                    "parts/\n"
-                    "sdist/\n"
-                    "var/\n"
-                    "wheels/\n"
-                    "*.egg-info/\n"
-                    ".env\n"
-                    ".venv\n"
-                    "venv/\n"
-                    "ENV/\n"
-                    ".mypy_cache/\n"
-                    ".pytest_cache/\n"
-                    ".coverage\n"
-                    "htmlcov/\n"
-                    ".DS_Store\n"
-                    "Thumbs.db\n"
-                )
-                with open(gitignore, 'w') as f:
-                    f.write(gitignore_content)
-            
-            # Make initial commit
-            run_command(['git', 'add', '.'], cwd=path)
-            run_command(
-                ['git', 'commit', '-m', 'Initial commit'],
-                cwd=path
-            )
-            
-        except Exception as e:
-            logger.warning(f"Git repository initialization failed: {e}")
-    
-    def _update_recent_projects(self, project_name: str) -> None:
-        """Update the list of recently used projects."""
-        recent = self.config.config.get('recent_projects', [])
-        if project_name in recent:
-            recent.remove(project_name)
-        recent.insert(0, project_name)
-        self.config.config['recent_projects'] = recent[:10]  # Keep only 10 most recent
-        self.config.save_config()
-    
-    def list_projects(self, status: Optional[str] = None) -> List['WRDProject']:
-        """List all projects with optional status filter."""
-        if status:
-            return [p for p in self.projects.values() if p.get_status() == status]
-        return list(self.projects.values())
-    
-    def get_project(self, name: str) -> Optional['WRDProject']:
-        """Get a project by name."""
-        return self.projects.get(name)
-    
-    def _remove_from_recent_projects(self, project_name: str) -> None:
-        """Remove a project from recent projects list."""
-        if 'recent_projects' in self.config.config:
-            recent = self.config.config['recent_projects']
-            if project_name in recent:
-                recent.remove(project_name)
-                self.config.save_config()
-    
-    def delete_project(self, name: str, force: bool = False) -> bool:
-        """Delete a project.
+# Windows
+Thumbs.db
+desktop.ini
+
+# Project specific
+*.swp
+*~
+.project
+.pydevproject
+"""
+        with open(self.project_dir / '.gitignore', 'w') as f:
+            f.write(gitignore_content)
+
+    def delete(self, force: bool = False) -> bool:
+        """Usuwa projekt.
 
         Args:
-            name (str): Name of the project to delete
-            force (bool, optional): Skip confirmation prompt if True. Defaults to False.
+            force: Jeśli True, nie pyta o potwierdzenie
 
         Returns:
-            bool: True if project was deleted, False otherwise
+            bool: True jeśli projekt został usunięty, w przeciwnym razie False
         """
-        if name not in self.projects:
-            logger.error(f"Project '{name}' not found")
+        if not self.project_dir.exists():
+            logger.error(f"Project directory {self.project_dir} does not exist")
             return False
-            
-        project = self.projects[name]
-        
-        if not force and not typer.confirm(f"Are you sure you want to delete project '{name}'?"):
-            return False
-            
+
+        if not force:
+            confirm = typer.confirm(
+                f"Czy na pewno chcesz usunąć projekt '{self.name}'?"
+            )
+            if not confirm:
+                return False
+
         try:
-            # Remove project directory
-            if project.path.exists():
-                import shutil
-                shutil.rmtree(project.path, ignore_errors=True)
-                
-            # Remove from projects and recent projects
-            del self.projects[name]
-            self._remove_from_recent_projects(name)
-            
-            logger.info(f"Project '{name}' deleted successfully")
+            import shutil
+
+            shutil.rmtree(self.project_dir)
+            logger.info(f"Project '{self.name}' has been deleted")
             return True
-            
         except Exception as e:
-            logger.error(f"Error deleting project '{name}': {e}")
+            logger.error(f"Error deleting project: {e}")
             return False
-    
-    def auto_commit(self, message: Optional[str] = None) -> None:
-        """Automatically commit changes in all projects."""
-        for project in self.projects.values():
-            if (project.path / '.git').exists():
-                try:
-                    # Check for changes
-                    result = run_command(
-                        ['git', 'status', '--porcelain'],
-                        cwd=project.path,
-                        capture_output=True
-                    )
-                    
-                    if result.stdout.strip():
-                        # There are changes to commit
-                        if not message:
-                            message = f"Auto-commit: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                        
-                        run_command(['git', 'add', '.'], cwd=project.path)
-                        run_command(
-                            ['git', 'commit', '-m', message],
-                            cwd=project.path
-                        )
-                        logger.info(f"Committed changes in {project.name}")
-                        
-                except Exception as e:
-                    logger.error(f"Failed to auto-commit in {project.name}: {e}")
-    
-    def show_status(self) -> None:
-        """Show status of all projects."""
-        projects = self.list_projects()
-        if not projects:
-            console.print("[yellow]No projects found.[/]")
-            return
 
-        table = Table(title="WRD Projects")
-        table.add_column("Name", style="cyan")
-        table.add_column("Type")
-        table.add_column("Status")
-        table.add_column("Path")
-        
-        for project in sorted(projects, key=lambda p: p.name):
-            project_dir = self.config.projects_dir / project.name
-            
-            # Get Git status if available
-            git_status = ""
-            if (project_dir / '.git').exists():
-                try:
-                    # Check if there are uncommitted changes
-                    result = run_command(
-                        ['git', 'status', '--porcelain'],
-                        cwd=project_dir,
-                        capture_output=True
-                    )
-                    if result.stdout.strip():
-                        git_status = "[yellow]uncommitted[/]"
-                    else:
-                        git_status = "[green]clean[/]"
-                except Exception:
-                    git_status = "[red]error[/]"
-            
-            table.add_row(
-                project.name,
-                project._metadata.get('type', 'unknown'),
-                git_status or "[dim]no git[/]",
-                str(project.path)
-            )
-        
-        console.print(table)
+    def open_in_editor(self) -> None:
+        """Otwiera projekt w domyślnym edytorze."""
+        editor = os.getenv('EDITOR', 'code' if sys.platform == 'win32' else 'xdg-open')
+        try:
+            subprocess.run([editor, str(self.project_dir)], check=True)
+        except Exception as e:
+            logger.error(f"Error opening editor: {e}")
 
+    def run_command(self, command: str) -> None:
+        """Uruchamia polecenie w katalogu projektu.
 
-# Helper functions
-def run_command(
-    cmd: Union[str, List[str]], 
-    cwd: Optional[Union[str, Path]] = None, 
-    capture_output: bool = False,
-    check: bool = True
-) -> subprocess.CompletedProcess:
-    """Run a shell command with proper error handling.
-    
-    Args:
-        cmd: Command to run as string or list of arguments
-        cwd: Working directory for the command
-        capture_output: Whether to capture command output
-        check: Whether to raise an exception on non-zero exit code
-        
-    Returns:
-        CompletedProcess object with command results
-    """
-    try:
-        if isinstance(cmd, str):
-            # Use shell=True for string commands
-            return subprocess.run(
-                cmd,
-                shell=True,
-                cwd=str(cwd) if cwd else None,
-                check=check,
-                capture_output=capture_output,
-                text=True,
-                encoding='utf-8',
-                errors='replace'
-            )
-        else:
-            # Use shell=False for list of arguments (safer)
-            return subprocess.run(
-                [str(arg) for arg in cmd],
-                shell=False,
-                cwd=str(cwd) if cwd else None,
-                check=check,
-                capture_output=capture_output,
-                text=True,
-                encoding='utf-8',
-                errors='replace'
-            )
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Command failed with exit code {e.returncode}: {e.cmd}")
-        if e.stdout:
-            logger.debug(f"Command output:\n{e.stdout}")
-        if e.stderr:
-            logger.error(f"Command error:\n{e.stderr}")
-        raise
-    except FileNotFoundError as e:
-        logger.error(f"Command not found: {e.filename}")
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error running command: {e}")
-        raise
+        Args:
+            command: Polecenie do wykonania
+        """
+        try:
+            subprocess.run(command, shell=True, cwd=self.project_dir, check=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Command failed with exit code {e.returncode}")
+        except Exception as e:
+            logger.error(f"Error running command: {e}")
 
+    def get_status(self) -> str:
+        """Zwraca status projektu."""
+        if not self.project_dir.exists():
+            return "not_found"
+        return "active"
 
-def handle_keyboard_interrupt() -> None:
-    """Handle keyboard interrupt gracefully."""
-    console.print("\n[red]Operation cancelled by user.[/]")
-    sys.exit(1)
-
-
-# Register signal handler for graceful exit
-signal.signal(signal.SIGINT, lambda *_: handle_keyboard_interrupt())
-
-
-# CLI Commands
-@app.command()
-def shell():
-    """Start interactive WRD shell."""
-    try:
-        WRDShell().shell()
-    except Exception as e:
-        logger.error(f"Error in shell: {e}")
-        raise typer.Exit(1)
-
-
-@app.command()
-def init(
-    name: str = typer.Argument(..., help="Project name"),
-    path: Path = typer.Argument(
-        None,
-        exists=False,
-        file_okay=False,
-        dir_okay=True,
-        writable=True,
-        resolve_path=True,
-        help="Project path (default: current directory/name)",
-    ),
-    template: str = typer.Option(
-        None, "--template", "-t", help="Template to use for the project"
-    ),
-    description: str = typer.Option(
-        "", "--description", "-d", help="Project description"
-    ),
-    interactive: bool = typer.Option(
-        True, "--interactive/--no-interactive", "-i/-I", help="Interactive mode"
-    ),
-):
-    """Initialize a new project."""
-    try:
-        config = get_config()
-        template_manager = get_template_manager()
-        
-        # Set default path if not provided
-        if path is None:
-            path = Path.cwd() / name
-        
-        # List available templates if none specified
-        available_templates = template_manager.list_templates()
-        if not template and interactive:
-            if not available_templates:
-                console.print("[yellow]No templates found. Using default Python template.[/]")
-                template = "python"
-            else:
-                table = Table(title="Available Templates")
-                table.add_column("Name", style="cyan")
-                table.add_column("Description")
-                
-                for tpl_name in available_templates:
-                    tpl = template_manager.get_template(tpl_name)
-                    desc = tpl['config'].get('description', 'No description')
-                    table.add_row(tpl_name, desc)
-                
-                console.print(table)
-                template = console.input("\n[bold]Choose a template[/] (default: python): ") or "python"
-        
-        # Get project details interactively
-        if interactive:
-            name = console.input(f"Project name [[cyan]{name}[/]]: ") or name
-            path = Path(console.input(f"Project path [[cyan]{path}[/]]: ") or path)
-            description = console.input(f"Description [[cyan]{description or 'No description'}[/]]: ") or description or ""
-        
-        # Create project context
-        context = {
-            "project_name": name,
-            "package_name": name.lower().replace("-", "_").replace(" ", "_"),
-            "description": description,
-            "author_name": os.getenv("USER", "Your Name"),
-            "author_email": "",
-            "license": "MIT",
-            "year": datetime.now().year,
+    def to_dict(self) -> Dict[str, Any]:
+        """Konwertuje projekt na słownik."""
+        return {
+            'name': self.name,
+            'type': self.project_type,
+            'path': str(self.project_dir),
+            'status': self.get_status(),
+            'created_at': (
+                datetime.fromtimestamp(self.project_dir.stat().st_ctime).isoformat()
+                if self.project_dir.exists()
+                else None
+            ),
+            'modified_at': (
+                datetime.fromtimestamp(self.project_dir.stat().st_mtime).isoformat()
+                if self.project_dir.exists()
+                else None
+            ),
         }
-        
-        # Create project
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            transient=True,
-        ) as progress:
-            progress.add_task(description="Creating project...", total=None)
-            success = template_manager.create_project(
-                template_name=template,
-                project_path=path,
-                context=context,
-                overwrite=False,
-            )
-        
-        if success:
-            console.print(f"\n[green]✓ Project created at {path}[/]")
-            
-            # Open in editor if configured
-            editor = config.config.get("editor")
-            if editor and interactive and typer.confirm("Open project in editor?"):
-                run_command(f"{editor} {path}")
-        else:
-            console.print("[red]Failed to create project.[/]")
-            raise typer.Exit(1)
-            
-    except Exception as e:
-        logger.error(f"Error initializing project: {e}")
-        raise typer.Exit(1)
 
 
-@app.command()
-def list_templates():
-    """List all available project templates."""
+def run_command(
+    cmd: Union[str, List[str]],
+    cwd: Optional[Union[str, Path]] = None,
+    capture_output: bool = False,
+    **kwargs: Any,
+) -> subprocess.CompletedProcess:
+    """Uruchamia polecenie w podprocesie.
+
+    Args:
+        cmd: Polecenie do wykonania (jako string lub lista argumentów)
+        cwd: Katalog roboczy
+        capture_output: Czy przechwytywać wyjście polecenia
+        **kwargs: Dodatkowe argumenty dla subprocess.run()
+
+    Returns:
+        subprocess.CompletedProcess: Wynik wykonania polecenia
+    """
+    if isinstance(cmd, str):
+        shell = True
+    else:
+        shell = False
+        cmd = [str(c) for c in cmd]
+
     try:
-        template_manager = get_template_manager()
-        templates = template_manager.list_templates()
-        
-        if not templates:
-            console.print("[yellow]No templates found.[/]")
-            return
-        
-        table = Table(
-            title="Available Templates",
-            caption=f"Use 'wrd init --template <name>' to create a project with a template"
+        return subprocess.run(
+            cmd,
+            cwd=cwd,
+            shell=shell,
+            check=False,
+            capture_output=capture_output,
+            text=True,
+            **kwargs,
         )
-        table.add_column("Name", style="cyan", no_wrap=True)
-        table.add_column("Description")
-        table.add_column("Type", no_wrap=True)
-        
-        # Sort templates by name
-        for name in sorted(templates):
-            template = template_manager.get_template(name)
-            if not template:
-                continue
-                
-            desc = template.get('config', {}).get('description', 'No description')
-            
-            # Determine template type
-            template_path = str(template.get('path', ''))
-            if "site-packages" in template_path:
-                tpl_type = "Built-in"
-            elif str(Path.home()) in template_path:
-                tpl_type = "User"
-            else:
-                tpl_type = "System"
-                
-            table.add_row(name, desc, tpl_type)
-        
-        console.print(table)
-        
     except Exception as e:
-        logger.error(f"Error listing templates: {e}")
-        if os.getenv("WRD_DEBUG"):
-            import traceback
-            logger.debug(traceback.format_exc())
+        logger.error(f"Error running command '{cmd}': {e}")
+        raise
+
+
+# Initialize Typer app
+app = typer.Typer(
+    name="wrd",
+    help="WRD (Word) - A powerful workflow automation tool for developers",
+    add_completion=False,
+)
+
+
+# Global configuration and state
+_config: WRDConfig | None = None
+_projects: Dict[str, WRDProject] = {}
+
+
+def get_config() -> 'WRDConfig':
+    """Get or create the global configuration."""
+    global _config
+    if _config is None:
+        _config = WRDConfig()
+    return _config
+
+
+def get_projects() -> Dict[str, WRDProject]:
+    """Get or load all projects."""
+    global _projects
+    if not _projects:
+        config = get_config()
+        for project_dir in config.projects_dir.glob("*"):
+            if project_dir.is_dir():
+                _projects[project_dir.name] = WRDProject(project_dir.name)
+    return _projects
+
+
+@app.command()
+def init() -> None:
+    """Initialize WRD configuration."""
+    config = get_config()
+    console.print(f"WRD initialized at {config.wrd_dir}")
+    console.print(f"Projects directory: {config.projects_dir}")
+
+
+@app.command()
+@typer.argument("name")
+@typer.option("--description", "-d", help="Project description")
+@typer.option("--type", "project_type", default="python", help="Project type")
+def new(name: str, description: str = "", project_type: str = "python") -> None:
+    """Create a new project."""
+    project = WRDProject(name, project_type)
+    project.create(description)
+    console.print(f"[green]Created project: {name}[/green]")
+    console.print(f"Project directory: {project.project_dir}")
+
+
+@app.command()
+@typer.argument("name")
+@typer.option("--force", "-f", is_flag=True, help="Force deletion without confirmation")
+def delete(name: str, force: bool = False) -> None:
+    """Delete a project."""
+    projects = get_projects()
+    if name not in projects:
+        console.print(f"[red]Error: Project '{name}' not found[/red]")
+        raise typer.Exit(1)
+
+    project = projects[name]
+    if not force and not typer.confirm(
+        f"Are you sure you want to delete project '{name}'?", default=False
+    ):
+        console.print("Project deletion cancelled")
+        raise typer.Exit(0)
+
+    if project.delete(force=force):
+        console.print(f"[green]Deleted project: {name}[/green]")
+    else:
+        console.print(f"[red]Failed to delete project: {name}[/red]")
         raise typer.Exit(1)
 
 
 @app.command()
-def config():
+def list() -> None:  # noqa: A001
+    """List all projects."""
+    projects = get_projects()
+    if not projects:
+        console.print("No projects found")
+        return
+
+    table = Table(title="Projects")
+    table.add_column("Name", style="cyan")
+    table.add_column("Type", style="magenta")
+    table.add_column("Path", style="green")
+    table.add_column("Created", style="yellow")
+    table.add_column("Modified", style="yellow")
+
+    for project in projects.values():
+        created = datetime.fromtimestamp(project.project_dir.stat().st_ctime)
+        modified = datetime.fromtimestamp(project.project_dir.stat().st_mtime)
+        table.add_row(
+            project.name,
+            project.project_type,
+            str(project.project_dir),
+            created.strftime("%Y-%m-%d %H:%M"),
+            modified.strftime("%Y-%m-%d %H:%M"),
+        )
+
+    console.print(table)
+
+
+@app.command()
+@typer.argument("name")
+@typer.option("--editor", "-e", help="Editor to use")
+def edit(name: str, editor: Optional[str] = None) -> None:
+    """Open a project in the default editor."""
+    projects = get_projects()
+    if name not in projects:
+        console.print(f"[red]Error: Project '{name}' not found[/red]")
+        raise typer.Exit(1)
+
+    project = projects[name]
+    if not project.project_dir.exists():
+        console.print(
+            f"[red]Error: Project directory not found: " f"{project.project_dir}[/red]"
+        )
+        raise typer.Exit(1)
+
+    editor_cmd = editor or os.getenv("EDITOR")
+    if not editor_cmd:
+        console.print(
+            "[red]Error: No editor specified and $EDITOR "
+            "environment variable not set[/red]"
+        )
+        raise typer.Exit(1)
+
+    try:
+        project.open_in_editor(editor_cmd)
+    except Exception as e:
+        console.print(f"[red]Error opening editor: {e}[/red]")
+        raise typer.Exit(1) from e
+
+
+@app.command()
+@typer.argument("command", nargs=-1)
+def run(command: List[str]) -> None:
+    """Run a command in the project directory."""
+    if not command:
+        console.print("[red]Error: No command specified[/red]")
+        raise typer.Exit(1)
+
+    project_name = Path.cwd().name
+    projects = get_projects()
+    if project_name not in projects:
+        console.print(
+            f"[red]Error: Not in a valid project directory: " f"{Path.cwd()}[/red]"
+        )
+        raise typer.Exit(1)
+
+    project = projects[project_name]
+    try:
+        project.run_command(" ".join(command))
+    except Exception as e:
+        console.print(f"[red]Error running command: {e}[/red]")
+        raise typer.Exit(1) from e
+
+
+@app.command()
+def config() -> None:
     """Configure WRD settings."""
     config = get_config()
-    
-    console.print("[bold]Current Configuration:[/]")
-    console.print_json(json.dumps(config.config, indent=2, default=str))
-    
-    if typer.confirm("\nDo you want to edit the configuration?"):
-        editor = os.getenv("EDITOR", "nano")
-        os.system(f"{editor} {config.config_file}")
+    editor = os.getenv("EDITOR", "nano")
+    os.system(f"{editor} {config.config_file}")
 
 
 @app.command()
 def version() -> None:
     """Display the current WRD version.
-    
+
     This command prints the version of the WRD package to the console.
     """
     console.print(f"WRD version: [bold cyan]{__version__}[/]")

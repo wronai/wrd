@@ -9,7 +9,7 @@ services:
     environment:
       - NODE_ENV=development
       - HOME=/home/node
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - NPM_CONFIG_PREFIX=/home/node/.npm-global
       - PATH=/home/node/.npm-global/bin:${PATH}
     volumes:
@@ -25,6 +25,9 @@ services:
       chown -R node:node /home/node && \
       # Install the Claude SDK globally
       su -c "npm install -g @anthropic-ai/sdk" node && \
+      # Create a wrapper script for claude
+      echo "#!/bin/sh\nNODE_PATH=/home/node/.npm-global/lib/node_modules exec node -e \"process.env.ANTHROPIC_API_KEY='${ANTHROPIC_API_KEY}'; require(\'@anthropic-ai/sdk\').main()\"" > /usr/local/bin/claude && \
+      chmod +x /usr/local/bin/claude && \
       # Start the container as the node user
       su -c "node" node'
     ports:
@@ -42,7 +45,7 @@ services:
         - TZ=${TZ:-UTC}
         - VSCODE_PASSWORD=${VSCODE_PASSWORD:-coder}
         - SUDO_PASSWORD=${SUDO_PASSWORD:-coder}
-        - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+        - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     container_name: claude-vscode
     user: root  # Run as root initially to set up permissions
     environment:
@@ -53,8 +56,9 @@ services:
       - SUDO_PASSWORD=${SUDO_PASSWORD:-coder}
       - DEFAULT_WORKSPACE=/workspace
       - DOCKER_USER=coder
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - PATH=/home/coder/.local/bin:${PATH}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - NODE_PATH=/home/coder/.npm-global/lib/node_modules
+      - PATH=/home/coder/.npm-global/bin:/home/coder/.local/bin:${PATH}
     volumes:
       - .:/workspace
       - vscode-extensions:/home/coder/.local/share/code-server/extensions
@@ -64,43 +68,41 @@ services:
       - "8083:8080"  # Using port 8083 to avoid conflicts with other services
     working_dir: /workspace
     restart: unless-stopped
-    entrypoint: |
-      /bin/sh -c '
+    entrypoint: /bin/sh -c '
       # Fix permissions for the coder user
-      chown -R coder:coder /home/coder && \
-      chown -R coder:coder /workspace && \
+      chown -R coder:coder /home/coder && 
+      chown -R coder:coder /workspace && 
       # Ensure config directory exists
-      mkdir -p /home/coder/.config/code-server && \
+      mkdir -p /home/coder/.config/code-server && 
       # Create local bin directory
-      mkdir -p /home/coder/.local/bin && \
-      # Install Claude CLI wrapper
-      if [ -f /workspace/scripts/cli-wrapper.sh ]; then
-        cp /workspace/scripts/cli-wrapper.sh /home/coder/.local/bin/claude && \
-        chmod +x /home/coder/.local/bin/claude && \
-        chown coder:coder /home/coder/.local/bin/claude && \
-        echo "Installed Claude CLI wrapper to /home/coder/.local/bin/claude"
-      fi && \
+      mkdir -p /home/coder/.local/bin && 
+      # Create a wrapper script for claude
+      echo "#!/bin/sh" > /usr/local/bin/claude && 
+      echo "NODE_PATH=/home/coder/.npm-global/lib/node_modules" >> /usr/local/bin/claude && 
+      echo "exec node -e \"process.env.ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY'; require('@anthropic-ai/sdk').main()\"" >> /usr/local/bin/claude && 
+      chmod +x /usr/local/bin/claude && 
       # Install Anthropic SDK globally
-      echo "Installing @anthropic-ai/sdk..." && \
-      su -c "npm install -g @anthropic-ai/sdk" coder && \
+      echo "Installing @anthropic-ai/sdk..." && 
+      su -c "npm install -g @anthropic-ai/sdk" coder && 
       # Generate a random token
-      export TOKEN=$(openssl rand -hex 16) && \
+      TOKEN=$(openssl rand -hex 16) && 
       # Set the token in config file
-      echo "bind-addr: 0.0.0.0:8080" > /home/coder/.config/code-server/config.yaml && \
-      echo "auth: none" >> /home/coder/.config/code-server/config.yaml && \
-      echo "password: ${TOKEN}" >> /home/coder/.config/code-server/config.yaml && \
-      echo "cert: false" >> /home/coder/.config/code-server/config.yaml && \
+      echo "bind-addr: 0.0.0.0:8080" > /home/coder/.config/code-server/config.yaml && 
+      echo "auth: none" >> /home/coder/.config/code-server/config.yaml && 
+      echo "password: $TOKEN" >> /home/coder/.config/code-server/config.yaml && 
+      echo "cert: false" >> /home/coder/.config/code-server/config.yaml && 
       # Set correct permissions
-      chown -R coder:coder /home/coder/.config && \
+      chown -R coder:coder /home/coder/.config && 
       # Display the token for login (remove this in production)
-      echo "========================================" && \
-      echo "VS Code Access Token: ${TOKEN}" && \
-      echo "Access at: http://localhost:8083" && \
-      echo "" && \
-      echo "Claude CLI is available. Type 'claude' to start." && \
-      echo "========================================" && \
+      echo "========================================" && 
+      echo "VS Code Access Token: $TOKEN" && 
+      echo "Access at: http://localhost:8083" && 
+      echo "" && 
+      echo "Claude CLI is available. Type 'claude' to start." && 
+      echo "API Key: $ANTHROPIC_API_KEY" && 
+      echo "========================================" && 
       # Start code-server as the coder user
-      su -c "code-server --bind-addr 0.0.0.0:8080 --auth none --disable-telemetry" coder'
+      exec su -c "code-server --bind-addr 0.0.0.0:8080 --auth none --disable-telemetry" coder'
 
 volumes:
   claude-code-cache:
