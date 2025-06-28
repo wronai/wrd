@@ -78,8 +78,8 @@ include = ["wrd*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-wrd = ["py.typed"]
-wrd.templates = ["**/*"]
+"wrd" = ["py.typed"]
+"wrd.templates" = ["templates/**/*"]
 
 [tool.black]
 line-length = 88

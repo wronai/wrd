@@ -21,6 +21,7 @@
 - **PWA Support**: Generate single-file Progressive Web Apps
 - **Git Integration**: Automatic Git repository initialization
 - **Configuration**: Simple YAML-based configuration
+- **Claude Code Integration**: Seamless integration with Claude Code AI assistant
 
 ## Features
 
@@ -96,6 +97,33 @@ my-awesome-project/
 └── .wrd/
     └── config.json
 ```
+
+## 🤖 Claude Code Integration
+
+WRD works seamlessly with [Claude Code](https://www.anthropic.com/product/claude-code), an AI coding assistant. Follow these steps to set up Claude Code with WRD:
+
+### Quick Setup
+
+1. Install Claude Code globally:
+   ```bash
+   npm install -g @anthropic-ai/claude-code
+   ```
+
+2. Authenticate with your preferred method:
+   - Anthropic Console (requires billing)
+   - Claude Pro/Max subscription
+   - Enterprise platforms (Bedrock/Vertex AI)
+
+3. Initialize a new project with WRD and Claude Code:
+   ```bash
+   wrd create my-ai-project --type python
+   cd my-ai-project
+   claude
+   ```
+
+4. Use the `/init` command in the Claude Code interface to generate project-specific documentation.
+
+For detailed installation instructions, troubleshooting, and advanced configuration, see our [Claude Code Setup Guide](./docs/how-to-guides/claude-code-setup.md).
 
 ## Documentation
 
