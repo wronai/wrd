@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wrd"
-version = "1.0.2"
+version = "1.0.3"
 description = "WRD (Word) - Narzędzie workflow dla Claude Code na Fedorze"
 readme = "README.md"
 requires-python = ">=3.8"
