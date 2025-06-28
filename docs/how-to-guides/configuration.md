@@ -65,6 +65,10 @@ Example template structure:
     └── {{cookiecutter.project_name}}.jinja2
 ```
 
+## Claude Code Integration
+
+For detailed instructions on setting up and configuring Claude Code, see the [Claude Code Setup Guide](./claude-code-setup.md).
+
 ## Shell Configuration
 
 To enable shell completion, add the following to your shell configuration file:

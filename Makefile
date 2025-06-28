@@ -89,6 +89,12 @@ publish: build check-build  ## Upload to PyPI
 	@echo "Uploading to PyPI..."
 	twine upload dist/*
 
+.PHONY: push
+push:  ## Push code to remote repository
+	@echo "Pushing to remote repository..."
+	git push origin $(shell git rev-parse --abbrev-ref HEAD)
+	git push --tags
+
 # Cleanup
 .PHONY: clean
 clean:  ## Remove build artifacts, cache, and test artifacts
