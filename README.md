@@ -1,4 +1,5 @@
-![img.png](img.png)
+
+![img_1.png](img_1.png)
 <div align="center">
   <h1>WRD (WRonai Development)</h1>
   <p>A powerful workflow automation tool for developers</p>

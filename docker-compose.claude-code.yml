@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  claude-code:
+    image: node:18-bookworm
+    container_name: claude-code
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      - NODE_ENV=development
+      - HOME=/home/node
+    volumes:
+      - ./workspace:/workspace
+      - claude-code-cache:/home/node/.npm
+      - claude-code-config:/home/node/.config
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+volumes:
+  claude-code-cache:
+  claude-code-config:

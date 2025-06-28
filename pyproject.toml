@@ -1,14 +1,15 @@
 [build-system]
-requires = ["setuptools>=42", "wheel", "setuptools-scm"]
+requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "wrd"
-version = "0.1.2"
+version = "0.1.2"  # Fallback version if setuptools-scm is not available
 description = "WRD (WRonai Development) - A powerful workflow automation tool for developers"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "WRonai Team", email = "contact@wronai.com"}
 ]
@@ -18,7 +19,6 @@ maintainers = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -55,15 +55,18 @@ dev = [
     "twine>=4.0.0,<5.0.0",
     "build>=0.10.0,<1.0.0",
 ]
-
 data = [
     "pandas>=1.5.0,<2.0.0",
     "numpy>=1.24.0,<2.0.0",
     "matplotlib>=3.6.0,<4.0.0",
 ]
+web = [
+    "fastapi>=0.95.0,<1.0.0",
+    "uvicorn>=0.20.0,<1.0.0",
+]
 
 [project.scripts]
-wrd = "wrd.cli:app"
+wrd = "wrd.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/wronai/wrd"
@@ -72,16 +75,16 @@ Repository = "https://github.com/wronai/wrd"
 Changelog = "https://github.com/wronai/wrd/blob/main/CHANGELOG.md"
 Issues = "https://github.com/wronai/wrd/issues"
 
-[tool.setuptools.package-data]
-"*" = ["py.typed"]
-
-[tool.setuptools.package-dir]
-"wrd" = "src/wrd"
-
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["wrd*"]
+include = ["wrd"]
 namespaces = false
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.package-data]
+"wrd" = ["py.typed", "templates/**/*"]
 
 [tool.black]
 line-length = 88

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  claude-ide:
+    build:
+      context: .
+      dockerfile: Dockerfile.claude-ide
+    container_name: claude-ide
+    environment:
+      - PASSWORD=${PASSWORD:-password123}  # Change this or set via .env
+      - SUDO_PASSWORD=${PASSWORD:-password123}
+      - DEFAULT_WORKSPACE=/workspace
+    volumes:
+      - ./workspace:/workspace
+      - ./config:/config
+    ports:
+      - "8443:8443"  # VS Code web interface
+      - "3000:3000"  # Optional: for web apps
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+      - /var/run
+
+  # Add MCP server configuration if needed
+  # mcp-server:
+  #   image: your-mcp-server-image
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - MCP_CONFIG=...
+  #   volumes:
+  #     - ./mcp-config:/etc/mcp
