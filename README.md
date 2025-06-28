@@ -1,7 +1,128 @@
 ![img.png](img.png)
-# WRD (WRonai Development)
+<div align="center">
+  <h1>WRD (WRonai Development)</h1>
+  <p>A powerful workflow automation tool for developers</p>
+  
+  [![PyPI](https://img.shields.io/pypi/v/wrd?style=for-the-badge)](https://pypi.org/project/wrd/)
+  [![Python](https://img.shields.io/badge/python-3.8+-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+  [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
+  
+  [Documentation](https://wronai.github.io/wrd) |
+  [Examples](https://github.com/wronai/wrd/tree/main/examples) |
+  [Report Bug](https://github.com/wronai/wrd/issues)
+</div>
 
-WRD is a powerful workflow tool designed to streamline your development process, especially when working with AI tools like Claude Code. It provides project management, automatic documentation, and workflow automation.
+## 🚀 Features
+
+- **Project Templates**: Quickly bootstrap projects with pre-configured templates
+- **Interactive Shell**: User-friendly command-line interface with rich menus
+- **Multi-language Support**: Works with Python, JavaScript, and more
+- **Customizable**: Create and share your own templates
+- **PWA Support**: Generate single-file Progressive Web Apps
+- **Git Integration**: Automatic Git repository initialization
+- **Configuration**: Simple YAML-based configuration
+
+## Features
+
+- 🚀 **Project Management**: Create and manage projects with a single command
+- 📝 **Automatic Documentation**: Generate and maintain project documentation
+- 🤖 **AI Integration**: Optimized for working with AI coding assistants
+- 🔄 **Workflow Automation**: Automate repetitive tasks
+- ⏱️ **Session Monitoring**: Track your coding sessions
+- 💾 **Backup System**: Keep your work safe with automated backups
+- 📊 **Progress Tracking**: Monitor your project's progress
+
+## Installation
+
+### Prerequisites
+
+- Python 3.8 or higher
+- Git
+- pip (Python package manager)
+
+### Using pip (recommended)
+
+```bash
+pip install wrd-tool
+```
+
+### From source
+```bash
+# Clone the repository
+git clone https://github.com/wronai/wrd.git
+cd wrd
+
+# Install in development mode
+pip install -e .
+```
+
+## Quick Start
+
+### Create a new project
+```bash
+wrd create my-awesome-project --type python --description "My awesome project"
+```
+
+### List all projects
+```bash
+wrd list
+```
+
+### Update project progress
+```bash
+wrd progress my-awesome-project "Initial setup complete"
+```
+
+### Create a backup
+```bash
+wrd backup
+```
+
+## Project Structure
+
+When you create a new project, the following structure is generated:
+
+```
+my-awesome-project/
+├── .git/
+├── .gitignore
+├── README.md
+├── CLAUDE.md
+├── requirements.txt
+├── src/
+│   └── __init__.py
+├── tests/
+│   └── __init__.py
+└── .wrd/
+    └── config.json
+```
+
+## Documentation
+
+For detailed documentation, please visit our [documentation site](https://wronai.github.io/wrd/).
+
+## Contributing
+
+Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTING.md) before submitting pull requests.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+For support, please open an issue in the [issue tracker](https://github.com/wronai/wrd/issues).
+
+## Acknowledgments
+
+- Inspired by Claude Code workflow
+- Built with ❤️ by the WRonai team
 
 ## 📦 Features
 

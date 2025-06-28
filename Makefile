@@ -1,138 +1,150 @@
-# Universal File Converter System
-# Usage: make [library] [from_format] [to_format] [input_file] [output_file]
-# Example: make imagemagick jpg png input.jpg output.png
+.PHONY: help
+help:  ## Display this help message
+	@echo "Please use 'make <target>' where <target> is one of"
+	@echo
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo
 
-SHELL := /bin/bash
-CONVERTER_DIR := ./converters
-HELP_DIR := ./help
-CONFIG_DIR := ./config
+# Development
+.PHONY: install
+install:  ## Install the package in development mode
+	@echo "Installing package in development mode..."
+	pip install -e .[dev]
 
-# Default output file generation
-define generate_output
-$(if $(5),$(5),$(basename $(4)).$(3))
-endef
+.PHONY: install-all
+install-all:  ## Install with all optional dependencies
+	@echo "Installing package with all optional dependencies..."
+	pip install -e ".[dev,data]"
 
-# Color definitions for output
-RED := \033[0;31m
-GREEN := \033[0;32m
-YELLOW := \033[0;33m
-BLUE := \033[0;34m
-NC := \033[0m # No Color
+.PHONY: install-tools
+install-tools:  ## Install development tools
+	@echo "Installing development tools..."
+	pip install -U pip setuptools wheel
+	pip install -U black isort flake8 mypy pytest pytest-cov build twine
 
-# Help system
-.PHONY: help list-libraries list-formats search benchmark validate format lint install-dev push publish
-help:
-	@echo -e "$(BLUE)Universal File Converter System$(NC)"
-	@echo ""
-	@echo "Available commands:"
-	@echo "  help              - Show this help"
-	@echo "  install           - Install the package in development mode"
-	@echo "  install-dev       - Install development dependencies"
-	@echo "  format            - Format code using black and isort"
-	@echo "  lint              - Lint code using flake8 and mypy"
-	@echo "  test              - Run tests with pytest"
-	@echo "  list              - List all supported file extensions"
-	@echo "  push              - Push changes to git (runs tests and linting first)"
-	@echo "  publish           - Publish package to PyPI (creates git tag and pushes changes)"
-	@echo "  check-conflicts   - Check format conversion conflicts"
-	@echo ""
-	@echo "Examples:"
-	@echo "  make format       # Format the code"
-	@echo "  make lint         # Run linters"
-	@echo "  make test         # Run tests"
-	@echo "  make push         # Push changes to git"
-	@echo "  make publish      # Publish to PyPI"
+# Formatting and Linting
+.PHONY: format
+format:  ## Format code with black and isort
+	@echo "Formatting code..."
+	black src tests
+	isort src tests
 
-# Conversion function
-define convert_file
-	@if [ ! -f "$(CONVERTER_DIR)/$(1).sh" ]; then \
-		echo -e "$(RED)Error: Library $(1) not found$(NC)"; \
-		exit 1; \
-	fi; \
-	if [ -z "$(word 1,$(2))" ] || [ -z "$(word 2,$(2))" ] || [ -z "$(word 3,$(2))" ]; then \
-		echo -e "$(RED)Error: Missing arguments$(NC)"; \
-		echo "Usage: make $(1) [from_format] [to_format] [input_file] [output_file]"; \
-		exit 1; \
-	fi; \
-	FROM_FORMAT="$(word 1,$(2))"; \
-	TO_FORMAT="$(word 2,$(2))"; \
-	INPUT_FILE="$(word 3,$(2))"; \
-	OUTPUT_FILE="$(call generate_output,$(1),$$FROM_FORMAT,$$TO_FORMAT,$$INPUT_FILE,$(word 4,$(2)))"; \
-	echo -e "$(GREEN)Converting with $(1):$(NC) $$INPUT_FILE ($$FROM_FORMAT) -> $$OUTPUT_FILE ($$TO_FORMAT)"; \
-	bash $(CONVERTER_DIR)/$(1).sh "$$FROM_FORMAT" "$$TO_FORMAT" "$$INPUT_FILE" "$$OUTPUT_FILE"
-endef
+.PHONY: lint
+lint:  ## Run linters (black, isort, flake8, mypy)
+	@echo "Running linters..."
+	black --check --diff src tests
+	isort --check-only src tests
+	flake8 src tests
+	mypy src
 
-# Install the package in development mode
-install:
-	@echo -e "$(BLUE)Installing text2file in development mode...$(NC)"
-	poetry install
-	@echo -e "\n$(GREEN)Installation complete! You can now use the 'text2file' command.$(NC)"
+# Testing
+.PHONY: test
+TEST_PATH=./tests
+.PHONY: test
+test:  ## Run tests
+	@echo "Running tests..."
+	pytest $(TEST_PATH) -v --cov=wrd --cov-report=term-missing --cov-report=xml:coverage.xml
 
-# Install development dependencies
-install-dev:
-	@echo -e "$(BLUE)Installing development dependencies...$(NC)"
-	poetry add --container dev \
-		"black>=22.3.0,<23.0.0" \
-		"isort>=5.10.1,<6.0.0" \
-		"flake8>=5.0.0,<6.0.0" \
-		"mypy>=0.971,<1.0.0" \
-		"pytest>=7.0.0,<8.0.0" \
-		"pytest-cov>=3.0.0,<4.0.0"
-	@echo -e "$(GREEN)Development dependencies installed!$(NC)"
+.PHONY: test-cov
+test-cov:  ## Run tests with coverage report
+	@echo "Running tests with coverage..."
+	pytest --cov=wrd --cov-report=html:htmlcov
 
-# Format code using black and isort
-format:
-	@echo -e "$(BLUE)Formatting code...$(NC)"
-	poetry run black src/ tests/
-	poetry run isort src/ tests/
-	@echo -e "$(GREEN)Formatting complete!$(NC)"
+.PHONY: test-all
+test-all:  ## Run all tests with coverage and linting
+	@echo "Running all tests with coverage and linting..."
+	make lint
+	make test
+	make test-cov
 
-# Lint code using flake8 and mypy
-lint:
-	@echo -e "$(BLUE)Linting code...$(NC)"
-	poetry run flake8 src/ tests/
-	poetry run mypy src/ tests/
-	@echo -e "$(GREEN)Linting complete!$(NC)"
+# Documentation
+.PHONY: docs
+docs:  ## Generate documentation
+	@echo "Generating documentation..."
+	cd docs && $(MAKE) html
 
-# List all supported file extensions
-list:
-	@echo -e "$(BLUE)Supported file extensions:$(NC)"
-	@poetry run python scripts/list_extensions.py | sort | xargs -n 1 echo "  - "
+.PHONY: docs-serve
+docs-serve: docs  ## Serve documentation locally
+	@echo "Serving documentation at http://localhost:8000"
+	python -m http.server --directory docs/_build/html 8000
 
-# Install dependencies
-install-deps:
-	@echo -e "$(BLUE)Installing converter dependencies...$(NC)"
-	@bash $(CONFIG_DIR)/install_dependencies.sh
+# Build and Release
+.PHONY: build
+build:  ## Build source and wheel packages
+	@echo "Building source and wheel packages..."
+	python -m build
 
-# Push changes to git after running tests and linting
-push: test
-	@echo -e "$(GREEN)✓ All tests and linting passed!$(NC)"
-	@echo -e "\n$(BLUE)Staging changes...$(NC)"
-	git add .
-	@if git diff --cached --quiet; then \
-		echo -e "$(YELLOW)No changes to commit.$(NC)"; \
-	else \
-		git commit -m "Update package"; \
-	fi
-	@echo -e "\n$(BLUE)Pushing to git...$(NC)"
-	git push
-	@echo -e "\n$(GREEN)✓ Changes pushed to git$(NC)"
-	@echo -e "\n$(BLUE)Next steps:$(NC)"
-	@echo -e "1. To publish a new version to PyPI, run 'make publish'"
-	@echo -e "   This will:\n   - Update the version in pyproject.toml\n   - Create a git tag\n   - Build and publish the package"
+.PHONY: check-build
+check-build:  ## Check the built package
+	@echo "Checking built package..."
+	twine check dist/*
 
-# Publish the package to PyPI
-publish:
-	@echo -e "$(BLUE)Building and publishing package...$(NC)"
-	poetry version patch
-	git add pyproject.toml
-	git commit -m "Bump version"
-	git tag -a v$$(poetry version -s) -m "Version $$(poetry version -s)"
-	git push --follow-tags
-	poetry build
-	poetry publish
-	@echo -e "\n$(GREEN)✓ Package published to PyPI!$(NC)"
+.PHONY: publish-test
+publish-test: build check-build  ## Upload to test PyPI
+	@echo "Uploading to test PyPI..."
+	twine upload --repository testpypi dist/*
 
-# Prevent make from interpreting arguments as targets
-%:
-	@:
+.PHONY: publish
+publish: build check-build  ## Upload to PyPI
+	@echo "Uploading to PyPI..."
+	twine upload dist/*
+
+# Cleanup
+.PHONY: clean
+clean:  ## Remove build artifacts, cache, and test artifacts
+	@echo "Cleaning up..."
+	rm -rf build/ dist/ *.egg-info/ .pytest_cache/ .mypy_cache/ .coverage coverage.xml htmlcov/ .tox/ .cache/ .eggs/ .hypothesis/
+	find . -type d -name '__pycache__' -exec rm -rf {} +
+	find . -type f -name '*.pyc' -delete
+	find . -type f -name '*.pyo' -delete
+	find . -type f -name '*~' -delete
+	find . -type f -name '*.swp' -delete
+	find . -type f -name '*.swo' -delete
+
+# Virtual Environment
+.PHONY: venv
+venv:  ## Create a virtual environment
+	@echo "Creating virtual environment..."
+	python -m venv venv
+
+.PHONY: activate
+activate:  ## Activate the virtual environment
+	@echo "Run 'source venv/bin/activate' to activate the virtual environment"
+
+# Development Server
+.PHONY: run
+run:  ## Run the development server
+	@echo "Starting development server..."
+	python -m wrd
+
+# Dependencies
+.PHONY: deps-outdated
+deps-outdated:  ## Check for outdated dependencies
+	@echo "Checking for outdated dependencies..."
+	pip list --outdated
+
+.PHONY: deps-upgrade
+deps-upgrade:  ## Upgrade all dependencies
+	@echo "Upgrading all dependencies..."
+	pip install --upgrade -r requirements.txt
+
+# Git Hooks
+.PHONY: install-hooks
+install-hooks:  ## Install git hooks
+	@echo "Installing git hooks..."
+	echo '#!/bin/sh\nmake lint test' > .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
+
+# Docker
+.PHONY: docker-build
+docker-build:  ## Build Docker image
+	@echo "Building Docker image..."
+	docker build -t wrd .
+
+.PHONY: docker-run
+docker-run:  ## Run Docker container
+	@echo "Running Docker container..."
+	docker run -it --rm wrd
+
+# Default target
+.DEFAULT_GOAL := help

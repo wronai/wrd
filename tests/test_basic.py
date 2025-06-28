@@ -9,6 +9,8 @@ sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..')
 ))
 
+
+
 class TestWRD(unittest.TestCase):
     """Test cases for the WRD package."""
 
@@ -34,6 +36,8 @@ class TestWRD(unittest.TestCase):
         from wrd.__main__ import main
         # This is a simple test that the main function exists
         self.assertTrue(callable(main))
+
+
 
 if __name__ == '__main__':
     unittest.main()
