@@ -72,14 +72,16 @@ Repository = "https://github.com/wronai/wrd"
 Changelog = "https://github.com/wronai/wrd/blob/main/CHANGELOG.md"
 Issues = "https://github.com/wronai/wrd/issues"
 
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[tool.setuptools.package-dir]
+"wrd" = "src/wrd"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["wrd*"]
 namespaces = false
-
-[tool.setuptools.package-data]
-"wrd" = ["py.typed"]
-"wrd.templates" = ["templates/**/*"]
 
 [tool.black]
 line-length = 88
