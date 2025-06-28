@@ -416,8 +416,9 @@ logs/
 
 
 class WRDManager:
-    """Main class for managing WRD projects."""
-    
+    """
+    Main class for managing WRD projects.
+    """
     def __init__(self, config: 'WRDConfig'):
         self.config = config
         self.projects: Dict[str, WRDProject] = {}
