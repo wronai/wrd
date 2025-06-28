@@ -99,6 +99,58 @@ my-awesome-project/
     └── config.json
 ```
 
+## 🐳 Docker Setup (Recommended)
+
+For an isolated development environment, you can use Docker to run WRD with Claude Code:
+
+### Prerequisites
+- Docker and Docker Compose
+- At least 2GB of free disk space
+
+### Quick Start
+
+1. **Clone the repository** (if not already done):
+   ```bash
+   git clone https://github.com/wronai/wrd.git
+   cd wrd
+   ```
+
+2. **Start the container**:
+   ```bash
+   ./cli/claude-code.sh
+   ```
+
+3. **If you encounter disk space issues**, try cleaning up Docker resources:
+   ```bash
+   # Clean up unused containers and images
+   docker system prune -a
+   
+   # Check disk usage
+   docker system df
+   
+   # Remove all unused volumes (be careful, this will delete all unused volumes)
+   docker volume prune
+   ```
+
+4. **For persistent storage issues**, you can configure Docker to use a different storage location:
+   ```bash
+   # Stop Docker
+   sudo systemctl stop docker
+   
+   # Edit Docker daemon configuration
+   sudo nano /etc/docker/daemon.json
+   ```
+   Add or modify the following (replace `/path/to/with/space` with your desired location):
+   ```json
+   {
+     "data-root": "/path/to/with/space/docker"
+   }
+   ```
+   Then restart Docker:
+   ```bash
+   sudo systemctl start docker
+   ```
+
 ## 🤖 Claude Code Integration
 
 WRD works seamlessly with [Claude Code](https://www.anthropic.com/product/claude-code), an AI coding assistant. Follow these steps to set up Claude Code with WRD:
