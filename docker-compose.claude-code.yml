@@ -1,13 +1,17 @@
 version: '3.8'
 
 services:
+  # Claude Code (Node.js CLI)
   claude-code:
     image: node:18-bookworm
     container_name: claude-code
-    user: "${UID:-1000}:${GID:-1000}"
+    user: root  # Run as root to avoid permission issues
     environment:
       - NODE_ENV=development
       - HOME=/home/node
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - NPM_CONFIG_PREFIX=/home/node/.npm-global
+      - PATH=/home/node/.npm-global/bin:${PATH}
     volumes:
       - ./workspace:/workspace
       - claude-code-cache:/home/node/.npm
@@ -15,8 +19,58 @@ services:
     working_dir: /workspace
     stdin_open: true
     tty: true
-    command: /bin/bash
+    entrypoint: |
+      /bin/sh -c '
+      # Fix permissions for the node user
+      chown -R node:node /home/node && \
+      # Install the Claude SDK globally
+      su -c "npm install -g @anthropic-ai/sdk" node && \
+      # Start the container as the node user
+      su -c "node" node'
+    ports:
+      - "3000:3000"  # For Claude Code web UI if needed
+    restart: unless-stopped
+
+  # VS Code in Browser
+  vscode:
+    build:
+      context: .
+      dockerfile: Dockerfile.claude-ide
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+        - TZ=${TZ:-UTC}
+        - VSCODE_PASSWORD=${VSCODE_PASSWORD:-coder}
+        - SUDO_PASSWORD=${SUDO_PASSWORD:-coder}
+        - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    container_name: claude-vscode
+    user: root  # Run as root initially to set up permissions
+    environment:
+      - PUID=${UID:-1000}
+      - PGID=${GID:-1000}
+      - TZ=${TZ:-UTC}
+      - PASSWORD=${VSCODE_PASSWORD:-coder}
+      - SUDO_PASSWORD=${SUDO_PASSWORD:-coder}
+      - DEFAULT_WORKSPACE=/workspace
+      - DOCKER_USER=coder
+    volumes:
+      - ./workspace:/workspace
+      - vscode-extensions:/home/coder/.local/share/code-server/extensions
+      - vscode-config:/home/coder/.config
+    ports:
+      - "8082:8080"  # Changed host port to 8082 to avoid conflicts with Traefik
+    working_dir: /workspace
+    restart: unless-stopped
+    entrypoint: |
+      /bin/sh -c '
+      # Fix permissions for the coder user
+      chown -R coder:coder /home/coder && \
+      chown -R coder:coder /workspace && \
+      # Start code-server as the coder user
+      su -c "code-server --bind-addr 0.0.0.0:8080 --auth password --disable-telemetry" coder'
 
 volumes:
   claude-code-cache:
   claude-code-config:
+  vscode-extensions:
+  vscode-config:

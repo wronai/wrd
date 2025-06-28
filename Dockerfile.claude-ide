@@ -1,4 +1,4 @@
-# Use a base image with VS Code Server
+# Use a base image with VS Code Server and Node.js
 FROM codercom/code-server:latest
 
 # Install system dependencies
@@ -10,36 +10,85 @@ RUN apt-get update && \
     wget \
     python3-pip \
     python3-venv \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Create workspace directory
-RUN mkdir -p /workspace
+# Install Node.js LTS
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g npm@latest
+
+# Create workspace directory and set permissions
+RUN mkdir -p /workspace && \
+    chown -R coder:coder /workspace && \
+    chown -R coder:coder /home/coder
+
+# Set up Python virtual environment
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install Python dependencies
-RUN pip3 install --no-cache-dir \
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir \
     anthropic \
     typer \
     rich \
     pyyaml \
-    python-dotenv
+    python-dotenv \
+    ipykernel
 
 # Install VS Code extensions
+# Note: ms-python.vscode-pylance is not available in the Open VSX registry
+# It's included in the Python extension, so we don't need to install it separately
 RUN code-server --install-extension ms-python.python \
     && code-server --install-extension ms-toolsai.jupyter \
-    && code-server --install-extension ms-python.vscode-pylance
+    && code-server --install-extension dbaeumer.vscode-eslint \
+    && code-server --install-extension esbenp.prettier-vscode \
+    && code-server --install-extension ms-python.isort
+
+# Switch back to coder user
+USER coder
+
+# Set up Node.js environment
+ENV NPM_CONFIG_PREFIX=/home/coder/.npm-global
+ENV PATH=$PATH:/home/coder/.npm-global/bin
+
+# Create npm global directory and set permissions
+RUN mkdir -p /home/coder/.npm-global && \
+    npm config set prefix '/home/coder/.npm-global'
+
+# Install global Node.js tools
+RUN npm install -g @anthropic-ai/sdk && \
+    npm cache clean --force
+
+# Set default shell to bash
+SHELL ["/bin/bash", "-c"]
+
+# Set working directory
+WORKDIR /workspace
+
+# Expose code-server port
+EXPOSE 8080
 
 # Configure environment
-ENV SHELL=/bin/bash
-ENV EDITOR=code
-
-# Set up workspace
-WORKDIR /workspace
+ENV SHELL=/bin/bash \
+    ANTHROPIC_API_KEY="" \
+    NODE_ENV=development \
+    EDITOR=code \
+    PASSWORD=password \
+    SUDO_PASSWORD=password
 
 # Copy configuration files if needed
 # COPY config/settings.json /home/coder/.local/share/code-server/User/settings.json
 
-# Switch back to coder user
-USER 1000
+# Ensure proper permissions
+RUN chown -R coder:coder /workspace && \
+    chown -R coder:coder /home/coder
 
-# Start VS Code Server
-CMD ["code-server", "--bind-addr", "0.0.0.0:8443", "--auth", "password", "/workspace"]
+# Switch to coder user
+USER coder
+
+# Start VS Code Server with authentication
+CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "--auth", "password", "/workspace"]
