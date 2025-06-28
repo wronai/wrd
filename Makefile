@@ -72,7 +72,7 @@ docs-serve: docs  ## Serve documentation locally
 .PHONY: build
 build:  ## Build source and wheel packages
 	@echo "Building source and wheel packages..."
-	python -m build
+	python3 -m build
 
 .PHONY: check-build
 check-build:  ## Check the built package

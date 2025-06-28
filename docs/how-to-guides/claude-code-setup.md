@@ -2,6 +2,8 @@
 
 This guide provides comprehensive instructions for setting up Claude Code on Linux systems, including Fedora. Claude Code is a powerful AI coding assistant that can be accessed via the command line.
 
+> **Note**: Claude Code is currently available only in supported countries. Please check the [Anthropic website](https://www.anthropic.com) for availability in your region.
+
 ## Prerequisites
 
 - A Linux distribution (tested on Fedora, Ubuntu, and Debian)
@@ -11,7 +13,15 @@ This guide provides comprehensive instructions for setting up Claude Code on Lin
 - Git
 - An Anthropic API key
 
-## Installation Methods
+## Installation
+
+### Prerequisites
+
+- Node.js 18 or later
+- npm (comes with Node.js)
+- Git (recommended for version control)
+- An Anthropic account with active billing (for API access)
+- Supported shell: Bash, Zsh, or Fish
 
 ### Method 1: Using the Installation Script (Recommended)
 
@@ -33,7 +43,7 @@ We provide a convenient installation script that handles all the setup for you:
    - Set up Node.js using NVM (Node Version Manager)
    - Configure npm to use a local directory to avoid permission issues
    - Install the Claude Code CLI globally
-   - Provide instructions for setting up your environment variables
+   - Provide instructions for authentication
 
 ### Method 2: Manual Installation
 
@@ -63,20 +73,45 @@ If you prefer to install manually, follow these steps:
 
 ## Configuration
 
-### Setting Up Your API Key
+## Authentication
 
-1. Get your Anthropic API key from the [Anthropic Console](https://console.anthropic.com/).
+Claude Code offers multiple authentication options:
 
-2. Set the API key as an environment variable in your shell configuration file:
+### 1. Anthropic Console (Default)
+1. Run `claude` in your terminal
+2. Select the option to authenticate via Anthropic Console
+3. Complete the OAuth process in your browser
+4. Requires active billing at [console.anthropic.com](https://console.anthropic.com)
+
+### 2. Claude App (Pro or Max Plan)
+1. Subscribe to Claude's Pro or Max plan at [claude.ai](https://claude.ai)
+2. Run `claude` in your terminal
+3. Select the Claude App authentication option
+4. Log in with your Claude.ai credentials
+
+### 3. Enterprise Platforms
+For enterprise deployments, you can configure Claude Code to use:
+- Amazon Bedrock
+- Google Vertex AI
+
+Contact your enterprise administrator for specific configuration details.
+
+### 4. API Key (Legacy)
+If you prefer to use an API key directly:
+
+1. Get your Anthropic API key from the [Anthropic Console](https://console.anthropic.com/)
+2. Set the API key as an environment variable:
    ```bash
+   # For Bash
    echo 'export ANTHROPIC_API_KEY="your-api-key-here"' >> ~/.bashrc
    source ~/.bashrc
-   ```
    
-   For Zsh users:
-   ```bash
+   # For Zsh
    echo 'export ANTHROPIC_API_KEY="your-api-key-here"' >> ~/.zshrc
    source ~/.zshrc
+   
+   # For Fish
+   set -Ux ANTHROPIC_API_KEY "your-api-key-here"
    ```
 
 ### WRD Integration
@@ -92,6 +127,32 @@ ai_tools:
     max_tokens: 4000
     temperature: 0.7
 ```
+
+## Project Initialization
+
+For first-time users, we recommend initializing your project:
+
+1. Navigate to your project directory:
+   ```bash
+   cd your-project-directory
+   ```
+
+2. Start Claude Code:
+   ```bash
+   claude
+   ```
+
+3. Run a simple command to test the setup:
+   ```
+   > summarize this project
+   ```
+
+4. Generate a `CLAUDE.md` project guide:
+   ```
+   /init
+   ```
+
+5. Commit the generated `CLAUDE.md` file to your repository.
 
 ## Usage
 
@@ -129,6 +190,8 @@ In interactive mode, you can:
 
 ## Troubleshooting
 
+## Troubleshooting
+
 ### Permission Denied Errors
 
 If you encounter permission errors when installing npm packages globally:
@@ -139,6 +202,30 @@ If you encounter permission errors when installing npm packages globally:
    echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.bashrc
    source ~/.bashrc
    ```
+
+### WSL (Windows Subsystem for Linux) Issues
+
+If you're using WSL and encounter issues:
+
+1. **OS/Platform Detection Issues**:
+   ```bash
+   # Set the correct OS before installation
+   npm config set os linux
+   
+   # Install with OS check disabled
+   npm install -g @anthropic-ai/claude-code --force --no-os-check
+   ```
+   > **Important**: Do NOT use `sudo` with npm install as it can lead to permission issues.
+
+2. **Node Not Found Errors**:
+   If you see `exec: node: not found` when running `claude`:
+   - Check your Node.js installation paths:
+     ```bash
+     which npm
+     which node
+     ```
+   - These should point to Linux paths (starting with `/usr/`) not Windows paths (starting with `/mnt/c/`)
+   - If needed, reinstall Node.js using your Linux distribution's package manager or nvm
 
 ### Node.js Version Issues
 
@@ -215,6 +302,23 @@ You can customize how Claude Code responds by providing a system prompt:
 claude-code --system "You are a senior software engineer with 10+ years of experience in Python and cloud technologies. Provide concise, professional code reviews." prompt "Review this code..."
 ```
 
+## Terminal Optimization
+
+For the best Claude Code experience, optimize your terminal setup:
+
+### Supported Shells
+- Bash
+- Zsh
+- Fish
+
+### Recommended Configuration
+1. Enable syntax highlighting in your shell
+2. Use a modern terminal emulator that supports:
+   - 24-bit color
+   - Unicode characters
+   - Smooth scrolling
+3. Consider using a terminal multiplexer like `tmux` or `screen` for long-running sessions
+
 ## Best Practices
 
 1. **Environment Variables**: Always use environment variables for API keys instead of hardcoding them in scripts.
@@ -224,7 +328,11 @@ claude-code --system "You are a senior software engineer with 10+ years of exper
    - `claude-3-haiku-20240307`: Fastest, most cost-effective
 3. **Rate Limiting**: Be aware of API rate limits and implement appropriate backoff strategies in automated workflows.
 4. **Error Handling**: Always implement proper error handling when using Claude Code in scripts.
-5. **Security**: Never commit API keys to version control. Use environment variables or secret management solutions.
+5. **Security**: 
+   - Never commit API keys to version control
+   - Use environment variables or secret management solutions
+   - Regularly rotate your API keys
+   - Use the principle of least privilege for API key permissions
 
 ## Support
 

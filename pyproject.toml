@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wrd"
+version = "0.1.2"
 description = "WRD (WRonai Development) - A powerful workflow automation tool for developers"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -77,10 +78,8 @@ include = ["wrd*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-wrd = ["py.typed", "templates/**/*", "templates/**/.*"]
-
-[tool.setuptools.dynamic]
-version = {attr = "wrd.__version__"}
+wrd = ["py.typed"]
+wrd.templates = ["**/*"]
 
 [tool.black]
 line-length = 88
