@@ -541,46 +541,6 @@ class WRDManager:
         """Get a project by name."""
         return self.projects.get(name)
     
-    def delete_project(self, name: str, force: bool = False) -> bool:
-        """Delete a project.
-
-        Args:
-            name (str): Name of the project to delete
-            force (bool, optional): If True, don't ask for confirmation. Defaults to False.
-
-        Returns:
-            bool: True if project was deleted, False otherwise
-        """
-        if name not in self.projects:
-            logger.error(f"Project '{name}' not found")
-            return False
-        
-        project = self.projects[name]
-        
-        if not force:
-            confirm = click.confirm(
-                f"Are you sure you want to delete project '{name}'? This cannot be undone.",
-                default=False
-            )
-            if not confirm:
-                return False
-        
-        try:
-            if project.path.exists():
-                import shutil
-                shutil.rmtree(project.path, ignore_errors=True)
-            
-            # Remove from projects list and recent projects
-            del self.projects[name]
-            self._remove_from_recent_projects(name)
-            
-            logger.info(f"Project '{name}' deleted successfully")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to delete project '{name}': {e}")
-            return False
-    
     def _remove_from_recent_projects(self, project_name: str) -> None:
         """Remove a project from recent projects list."""
         if 'recent_projects' in self.config.config:
@@ -588,6 +548,42 @@ class WRDManager:
             if project_name in recent:
                 recent.remove(project_name)
                 self.config.save_config()
+    
+    def delete_project(self, name: str, force: bool = False) -> bool:
+        """Delete a project.
+
+        Args:
+            name (str): Name of the project to delete
+            force (bool, optional): Skip confirmation prompt if True. Defaults to False.
+
+        Returns:
+            bool: True if project was deleted, False otherwise
+        """
+        if name not in self.projects:
+            logger.error(f"Project '{name}' not found")
+            return False
+            
+        project = self.projects[name]
+        
+        if not force and not typer.confirm(f"Are you sure you want to delete project '{name}'?"):
+            return False
+            
+        try:
+            # Remove project directory
+            if project.path.exists():
+                import shutil
+                shutil.rmtree(project.path, ignore_errors=True)
+                
+            # Remove from projects and recent projects
+            del self.projects[name]
+            self._remove_from_recent_projects(name)
+            
+            logger.info(f"Project '{name}' deleted successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error deleting project '{name}': {e}")
+            return False
     
     def auto_commit(self, message: Optional[str] = None) -> None:
         """Automatically commit changes in all projects."""
@@ -897,9 +893,13 @@ def config():
 
 
 @app.command()
-def version():
-    """Show WRD version."""
+def version() -> None:
+    """Display the current WRD version.
+    
+    This command prints the version of the WRD package to the console.
+    """
     console.print(f"WRD version: [bold cyan]{__version__}[/]")
+
 
 if __name__ == "__main__":
     app()
