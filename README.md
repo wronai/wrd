@@ -1,39 +1,156 @@
-# wrd
-WRD -> WRonai Develoment - (word)
+![img.png](img.png)
+# WRD (WRonai Development)
 
-# 🚀 Kompletna instrukcja instalacji WRD na Fedorze
+WRD is a powerful workflow tool designed to streamline your development process, especially when working with AI tools like Claude Code. It provides project management, automatic documentation, and workflow automation.
 
-## Krok 1: Przygotowanie środowiska Fedora
+## 📦 Features
+
+- **Project Management**: Create and manage projects with a single command
+- **Automatic Documentation**: Generate and maintain project documentation
+- **Workflow Automation**: Automate repetitive tasks
+- **Session Monitoring**: Track your coding sessions
+- **Backup System**: Keep your work safe with automated backups
+
+## 🚀 Installation
+
+### Prerequisites
+
+- Python 3.8 or higher
+- Git
+- pip (Python package manager)
+
+### Quick Start
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/wronai/wrd.git
+   cd wrd
+   ```
+
+2. **Set up a virtual environment (recommended)**:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install in development mode**:
+   ```bash
+   pip install -e .
+   ```
+
+4. **Verify installation**:
+   ```bash
+   wrd --help
+   ```
+
+## 🛠 Usage
+
+### Basic Commands
 
 ```bash
-# Uruchom skrypt konfiguracji środowiska
-curl -fsSL https://raw.githubusercontent.com/username/wrd/main/setup-fedora.sh | bash
+# Show help
+wrd --help
 
-# LUB pobierz i uruchom manualnie:
-wget https://raw.githubusercontent.com/username/wrd/main/setup-fedora.sh
-chmod +x setup-fedora.sh
-./setup-fedora.sh
+# Create a new project
+wrd create my-project --description "My awesome project"
+
+# List all projects
+wrd list
+
+# Show project status
+wrd status
+
+# Update project progress
+wrd progress my-project "Initial setup complete"
+
+# Create a backup
+wrd backup
 ```
 
-Po zakończeniu skryptu:
+### Creating a New Project
+
 ```bash
-# Zaloguj się ponownie lub odśwież bashrc
+# Create a new Python project
+wrd create my-python-project --type python --description "My Python project"
+
+# Create a new web project
+wrd create my-web-project --type web --description "My Web project"
+```
+
+### Project Structure
+
+When you create a new project, the following structure is generated:
+
+```
+my-project/
+├── .git/
+├── .gitignore
+├── README.md
+├── CLAUDE.md
+├── requirements.txt
+├── src/
+│   └── __init__.py
+├── tests/
+│   └── __init__.py
+└── .wrd/
+    └── config.json
+```
+
+## 🧪 Testing
+
+Run the test suite with:
+
+```bash
+pytest tests/
+```
+
+## 📚 Documentation
+
+For detailed documentation, please visit our [documentation site](https://github.com/wronai/wrd/wiki).
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTING.md) before submitting pull requests.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 📞 Support
+
+For support, please open an issue in the [issue tracker](https://github.com/wronai/wrd/issues).
+
+---
+
+## Fedora-Specific Setup (Optional)
+
+If you're using Fedora, you can use the following setup script:
+
+```bash
+# Run the setup script
+curl -fsSL https://raw.githubusercontent.com/wronai/wrd/main/fedora.sh | bash
+
+# Or download and run manually:
+wget https://raw.githubusercontent.com/wronai/wrd/main/fedora.sh
+chmod +x fedora.sh
+./fedora.sh
+```
+
+After running the script:
+```bash
+# Reload your shell configuration
 source ~/.bashrc
 
-# Sprawdź czy aliasy działają
+# Verify the installation
 cc-workspace
 ```
-
-## Krok 2: Instalacja paczki WRD
-
-### Metoda A: Instalacja z kodu źródłowego (zalecana)
 
 ```bash
 # Przejdź do workspace
 cc-workspace
 
 # Sklonuj repozytorium WRD
-git clone https://github.com/username/wrd.git
+git clone https://github.com/wronai/wrd.git
 cd wrd
 
 # Utwórz dedykowane środowisko wirtualne dla WRD
@@ -180,7 +297,7 @@ nano ~/.wrd/config.json
 sudo systemctl status sshd
 
 # Test połączenia z telefonu/innego urządzenia
-ssh username@your-fedora-ip
+ssh wronai@your-fedora-ip
 
 # Na zdalnym urządzeniu:
 cc-workspace

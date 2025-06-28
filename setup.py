@@ -12,7 +12,7 @@ setup(
     description="WRD (Word) - Narzędzie workflow dla Claude Code na Fedorze",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/username/wrd",
+    url="https://github.com/wronai/wrd",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",

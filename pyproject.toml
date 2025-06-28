@@ -33,11 +33,18 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
+test = [
     "pytest>=7.0.0",
+    "pytest-cov>=3.0.0",
+    "pytest-mock>=3.0.0"
+]
+dev = [
     "black>=22.0.0",
     "flake8>=4.0.0",
-    "mypy>=0.950"
+    "mypy>=0.950",
+    "pytest>=7.0.0",
+    "pytest-cov>=3.0.0",
+    "pytest-mock>=3.0.0"
 ]
 data = [
     "pandas>=1.5.0",
@@ -53,15 +60,15 @@ web = [
 wrd = "wrd.__main__:main"
 
 [project.urls]
-homepage = "https://github.com/username/wrd"
-repository = "https://github.com/username/wrd"
-documentation = "https://github.com/username/wrd#readme"
-"Bug Tracker" = "https://github.com/username/wrd/issues"
+homepage = "https://github.com/wronai/wrd"
+repository = "https://github.com/wronai/wrd"
+documentation = "https://github.com/wronai/wrd#readme"
+"Bug Tracker" = "https://github.com/wronai/wrd/issues"
 
 [tool.setuptools]
 package-dir = { "" = "." }
 packages = ["wrd"]
-package-data = {wrd = ["templates/*", "configs/*"]}
+package-data = { wrd = ["templates/*", "configs/*"] }
 
 [tool.black]
 line-length = 88
