@@ -53,12 +53,15 @@ services:
       - SUDO_PASSWORD=${SUDO_PASSWORD:-coder}
       - DEFAULT_WORKSPACE=/workspace
       - DOCKER_USER=coder
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - PATH=/home/coder/.local/bin:${PATH}
     volumes:
-      - ./workspace:/workspace
+      - .:/workspace
       - vscode-extensions:/home/coder/.local/share/code-server/extensions
       - vscode-config:/home/coder/.config
+      - claude-cli:/home/coder/.local/bin
     ports:
-      - "8082:8080"  # Changed host port to 8082 to avoid conflicts with Traefik
+      - "8083:8080"  # Using port 8083 to avoid conflicts with other services
     working_dir: /workspace
     restart: unless-stopped
     entrypoint: |
@@ -66,11 +69,42 @@ services:
       # Fix permissions for the coder user
       chown -R coder:coder /home/coder && \
       chown -R coder:coder /workspace && \
+      # Ensure config directory exists
+      mkdir -p /home/coder/.config/code-server && \
+      # Create local bin directory
+      mkdir -p /home/coder/.local/bin && \
+      # Install Claude CLI wrapper
+      if [ -f /workspace/scripts/cli-wrapper.sh ]; then
+        cp /workspace/scripts/cli-wrapper.sh /home/coder/.local/bin/claude && \
+        chmod +x /home/coder/.local/bin/claude && \
+        chown coder:coder /home/coder/.local/bin/claude && \
+        echo "Installed Claude CLI wrapper to /home/coder/.local/bin/claude"
+      fi && \
+      # Install Anthropic SDK globally
+      echo "Installing @anthropic-ai/sdk..." && \
+      su -c "npm install -g @anthropic-ai/sdk" coder && \
+      # Generate a random token
+      export TOKEN=$(openssl rand -hex 16) && \
+      # Set the token in config file
+      echo "bind-addr: 0.0.0.0:8080" > /home/coder/.config/code-server/config.yaml && \
+      echo "auth: none" >> /home/coder/.config/code-server/config.yaml && \
+      echo "password: ${TOKEN}" >> /home/coder/.config/code-server/config.yaml && \
+      echo "cert: false" >> /home/coder/.config/code-server/config.yaml && \
+      # Set correct permissions
+      chown -R coder:coder /home/coder/.config && \
+      # Display the token for login (remove this in production)
+      echo "========================================" && \
+      echo "VS Code Access Token: ${TOKEN}" && \
+      echo "Access at: http://localhost:8083" && \
+      echo "" && \
+      echo "Claude CLI is available. Type 'claude' to start." && \
+      echo "========================================" && \
       # Start code-server as the coder user
-      su -c "code-server --bind-addr 0.0.0.0:8080 --auth password --disable-telemetry" coder'
+      su -c "code-server --bind-addr 0.0.0.0:8080 --auth none --disable-telemetry" coder'
 
 volumes:
   claude-code-cache:
   claude-code-config:
   vscode-extensions:
   vscode-config:
+  claude-cli:

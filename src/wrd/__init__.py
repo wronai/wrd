@@ -13,7 +13,12 @@ if not TYPE_CHECKING and not sys.version_info >= (3, 7):
     def __getattr__(name: str) -> Any:
         if name in {"WRDShell", "TemplateManager", "get_template_manager"}:
             import importlib
-            module = importlib.import_module(f"wrd.{name.lower()}" if name != 'get_template_manager' else 'wrd.template_manager')
+
+            module = importlib.import_module(
+                f"wrd.{name.lower()}"
+                if name != 'get_template_manager'
+                else 'wrd.template_manager'
+            )
             return getattr(module, name)
         raise AttributeError(f"module 'wrd' has no attribute '{name}'")
 

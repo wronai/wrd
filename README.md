@@ -1,4 +1,5 @@
 
+![alt text](image.png)
 ![img_1.png](img_1.png)
 <div align="center">
   <h1>WRD (WRonai Development)</h1>
@@ -98,6 +99,44 @@ my-awesome-project/
 └── .wrd/
     └── config.json
 ```
+
+## 🖥️ Command Line Interface (CLI)
+
+WRD provides a powerful command-line interface for managing projects and interacting with Claude AI. The CLI is containerized using Docker for consistency across environments.
+
+### Key Features
+
+- Interactive shell with Claude AI integration
+- Project scaffolding and management
+- Template-based project generation
+- Seamless integration with the Anthropic SDK
+
+### Getting Started
+
+1. **Prerequisites**:
+   - Docker and Docker Compose
+   - Anthropic API key
+
+2. **Start the CLI**:
+   ```bash
+   ./cli/claude-code.sh
+   ```
+
+3. **Example Usage**:
+   ```javascript
+   // In the Node.js REPL
+   const { Anthropic } = require('@anthropic-ai/sdk');
+   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+   
+   // Start a conversation with Claude
+   const response = await anthropic.messages.create({
+     model: 'claude-3-opus-20240229',
+     max_tokens: 1000,
+     messages: [{ role: 'user', content: 'Hello, Claude!' }]
+   });
+   ```
+
+For detailed CLI documentation, see the [CLI Documentation](./cli/README.md).
 
 ## 🐳 Docker Setup (Recommended)
 

@@ -85,9 +85,10 @@ publish-test: build check-build  ## Upload to test PyPI
 	twine upload --repository testpypi dist/*
 
 .PHONY: publish
-publish: build check-build  ## Upload to PyPI
-	@echo "Uploading to PyPI..."
-	twine upload dist/*
+publish:  ## Upload to PyPI
+	poetry version patch
+	poetry build
+	poetry publish
 
 .PHONY: push
 push:  ## Push code to remote repository

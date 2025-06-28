@@ -16,10 +16,10 @@ def setup_test_environment() -> Generator[None, None, None]:
     """Set up the test environment."""
     # Set up any test environment variables here
     os.environ["WRD_DEBUG"] = "1"
-    
+
     # Yield to run the tests
     yield
-    
+
     # Clean up after tests if needed
 
 
@@ -35,6 +35,7 @@ def tmp_project_dir(tmp_path):
 def template_manager():
     """Create a template manager instance for testing."""
     from wrd.template_manager import TemplateManager
+
     return TemplateManager()
 
 

@@ -1,10 +1,12 @@
 """Functional tests for the WRD package."""
+
 import os
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
 
 class TestWRDFunctional(unittest.TestCase):
     """Functional test cases for the WRD package."""
@@ -38,9 +40,7 @@ class TestWRDFunctional(unittest.TestCase):
         manager = WRDManager()
         # Store the project object to avoid unused variable warning
         project = manager.create_project(
-            name=self.project_name,
-            project_type="python",
-            description="A test project"
+            name=self.project_name, project_type="python", description="A test project"
         )
 
         # Check if project directory was created
@@ -63,9 +63,7 @@ class TestWRDFunctional(unittest.TestCase):
         # Create a test project
         manager = WRDManager()
         manager.create_project(
-            name=self.project_name,
-            project_type="python",
-            description="A test project"
+            name=self.project_name, project_type="python", description="A test project"
         )
 
         # Test commit
@@ -73,7 +71,7 @@ class TestWRDFunctional(unittest.TestCase):
 
         # Check if git commands were called
         self.assertTrue(mock_run.called)
-        
+
     def test_list_projects(self):
         """Test listing projects."""
         from wrd.__main__ import WRDManager
@@ -81,14 +79,13 @@ class TestWRDFunctional(unittest.TestCase):
         # Create a test project
         manager = WRDManager()
         manager.create_project(
-            name=self.project_name,
-            project_type="python",
-            description="A test project"
+            name=self.project_name, project_type="python", description="A test project"
         )
 
         # Test listing projects
         projects = manager.list_projects()
         self.assertIn(self.project_name, projects)
+
 
 if __name__ == '__main__':
     unittest.main()
