@@ -71,74 +71,11 @@ class WRDConfig:
         self.templates_dir = self.wrd_dir / "templates"
         self.user_templates_dir = self.wrd_dir / "user_templates"
         self.cache_dir = self.wrd_dir / "cache"
-
-        self.ensure_directories()
-        self.config = self.load_config()
-
-    def ensure_directories(self) -> None:
-        """Ensure all required directories exist."""
-        for directory in [
-            self.wrd_dir,
-            self.projects_dir,
-            self.templates_dir,
-            self.user_templates_dir,
-            self.cache_dir,
-        ]:
-            directory.mkdir(parents=True, exist_ok=True)
-
-    def load_config(self) -> Dict[str, Any]:
-        """Load configuration from YAML file."""
-        if not self.config_file.exists():
-            return self.get_default_config()
-
-        try:
-            with open(self.config_file, "r") as f:
-                config = yaml.safe_load(f) or {}
-                return {**self.get_default_config(), **config}
-        except Exception as e:
-            logger.warning(f"Error loading config: {e}. Using default configuration.")
-            return self.get_default_config()
-
-    def save_config(self) -> None:
-        """Save configuration to YAML file."""
-        try:
-            with open(self.config_file, "w") as f:
-                yaml.dump(self.config, f, default_flow_style=False)
-        except Exception as e:
-            logger.error(f"Error saving config: {e}")
-
-    def get_default_config(self) -> Dict[str, Any]:
-        """Get default configuration."""
-        return {
-            "editor": os.getenv("EDITOR", "code"),
-            "default_language": "python",
-            "default_template": "python",
-            "templates": {},
-            "recent_projects": [],
-            "settings": {
-                "auto_update": True,
-                "check_updates": True,
-                "notifications": True,
-            },
-        }
-
-
-class WRDConfig:
-    """WRD Configuration Manager"""
-
-    def __init__(self):
-        self.home_dir = Path.home()
-        self.wrd_dir = self.home_dir / ".wrd"
-        self.config_file = self.wrd_dir / "config.yaml"
-        self.projects_dir = Path(os.getenv("WRD_PROJECTS_DIR", self.home_dir / "projects"))
-        self.templates_dir = self.wrd_dir / "templates"
-        self.user_templates_dir = self.wrd_dir / "user_templates"
-        self.cache_dir = self.wrd_dir / "cache"
         
         # Ensure all required directories exist
         self.ensure_directories()
         self.config = self.load_config()
-        
+
     def ensure_directories(self) -> None:
         """Ensure all required directories exist."""
         directories = [
@@ -397,29 +334,12 @@ ENV/
 
 # IDE
 .vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Environment variables
-.env
-.env.local
-
-
 
 class WRDManager:
-    """
-    Main class for managing WRD projects.
-    """
+    """Main class for managing WRD projects."""
+
     def __init__(self, config: 'WRDConfig'):
+        """Initialize WRDManager with config."""
         self.config = config
         self.projects: Dict[str, WRDProject] = {}
         self.load_projects()
@@ -623,11 +543,11 @@ class WRDManager:
     
     def delete_project(self, name: str, force: bool = False) -> bool:
         """Delete a project.
-        
+
         Args:
-            name: Name of the project to delete
-            force: If True, don't ask for confirmation
-            
+            name (str): Name of the project to delete
+            force (bool, optional): If True, don't ask for confirmation. Defaults to False.
+
         Returns:
             bool: True if project was deleted, False otherwise
         """
@@ -981,20 +901,5 @@ def version():
     """Show WRD version."""
     console.print(f"WRD version: [bold cyan]{__version__}[/]")
 
-        success = manager.auto_commit(args.project, args.message or "")
-        if success:
-            print(f"✅ Commit wykonany dla projektu '{args.project}'")
-        else:
-            print(f"❌ Nie udało się wykonać commit dla projektu '{args.project}'")
-
-    elif args.command == 'backup':
-        success = manager.backup_projects()
-        if success:
-            print("✅ Backup projektów wykonany")
-        else:
-            print("❌ Nie udało się wykonać backup")
-
-    elif args.command == 'progress':
-
 if __name__ == "__main__":
-    main()
+    app()
