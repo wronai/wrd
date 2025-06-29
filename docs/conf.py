@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'WRD'
-copyright = '2023, WRonai Team'
-author = 'WRonai Team'
+copyright = '2023, Tom Sapletta'
+author = 'Tom Sapletta'
 release = '0.1.0'
 
 # -- General configuration ---------------------------------------------------

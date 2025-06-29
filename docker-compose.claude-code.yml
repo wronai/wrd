@@ -64,45 +64,12 @@ services:
       - vscode-extensions:/home/coder/.local/share/code-server/extensions
       - vscode-config:/home/coder/.config
       - claude-cli:/home/coder/.local/bin
+      - ./scripts/entrypoint.sh:/entrypoint.sh
     ports:
       - "8083:8080"  # Using port 8083 to avoid conflicts with other services
     working_dir: /workspace
     restart: unless-stopped
-    entrypoint: /bin/sh -c '
-      # Fix permissions for the coder user
-      chown -R coder:coder /home/coder && 
-      chown -R coder:coder /workspace && 
-      # Ensure config directory exists
-      mkdir -p /home/coder/.config/code-server && 
-      # Create local bin directory
-      mkdir -p /home/coder/.local/bin && 
-      # Create a wrapper script for claude
-      echo "#!/bin/sh" > /usr/local/bin/claude && 
-      echo "NODE_PATH=/home/coder/.npm-global/lib/node_modules" >> /usr/local/bin/claude && 
-      echo "exec node -e \"process.env.ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY'; require('@anthropic-ai/sdk').main()\"" >> /usr/local/bin/claude && 
-      chmod +x /usr/local/bin/claude && 
-      # Install Anthropic SDK globally
-      echo "Installing @anthropic-ai/sdk..." && 
-      su -c "npm install -g @anthropic-ai/sdk" coder && 
-      # Generate a random token
-      TOKEN=$(openssl rand -hex 16) && 
-      # Set the token in config file
-      echo "bind-addr: 0.0.0.0:8080" > /home/coder/.config/code-server/config.yaml && 
-      echo "auth: none" >> /home/coder/.config/code-server/config.yaml && 
-      echo "password: $TOKEN" >> /home/coder/.config/code-server/config.yaml && 
-      echo "cert: false" >> /home/coder/.config/code-server/config.yaml && 
-      # Set correct permissions
-      chown -R coder:coder /home/coder/.config && 
-      # Display the token for login (remove this in production)
-      echo "========================================" && 
-      echo "VS Code Access Token: $TOKEN" && 
-      echo "Access at: http://localhost:8083" && 
-      echo "" && 
-      echo "Claude CLI is available. Type 'claude' to start." && 
-      echo "API Key: $ANTHROPIC_API_KEY" && 
-      echo "========================================" && 
-      # Start code-server as the coder user
-      exec su -c "code-server --bind-addr 0.0.0.0:8080 --auth none --disable-telemetry" coder'
+    command: ["/bin/sh", "/entrypoint.sh"]
 
 volumes:
   claude-code-cache:

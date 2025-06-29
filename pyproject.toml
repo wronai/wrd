@@ -8,13 +8,13 @@ version = "0.1.5"  # Fallback version if setuptools-scm is not available
 description = "WRD (WRonai Development) - A powerful workflow automation tool for developers"
 readme = "README.md"
 requires-python = ">=3.8"
-license = "MIT"
+license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [
-    {name = "WRonai Team", email = "contact@wronai.com"}
+    {name = "Tom Sapletta", email = "info@softreck.dev"}
 ]
 maintainers = [
-    {name = "WRonai Team", email = "contact@wronai.com"}
+    {name = "Tom Sapletta", email = "info@softreck.dev"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

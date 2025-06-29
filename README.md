@@ -242,7 +242,7 @@ For support, please open an issue in the [issue tracker](https://github.com/wron
 ## Acknowledgments
 
 - Inspired by Claude Code workflow
-- Built with ❤️ by the WRonai team
+- Built with ❤️ by the Tom Sapletta
 
 ## 📦 Features
 
